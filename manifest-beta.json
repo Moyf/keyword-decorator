@@ -1,0 +1,10 @@
+{
+  "id": "keyword-decorator",
+  "name": "Keyword Decorator",
+  "version": "0.2.5",
+  "minAppVersion": "0.13.5",
+  "description": "Decorate keyword matches in the editor with configurable styles and markers",
+  "author": "NothingIsLost",
+  "authorUrl": "https://github.com/nothingislost",
+  "isDesktopOnly": false
+}
