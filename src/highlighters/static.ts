@@ -131,6 +131,8 @@ const staticHighlighter = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
     widgetDecorations: DecorationSet;
+    private recomputeTimer: number | null = null;
+    private readonly docChangeDebounceMs = 90;
 
     constructor(view: EditorView) {
       let { token, widget } = this.getDeco(view);
@@ -140,10 +142,38 @@ const staticHighlighter = ViewPlugin.fromClass(
 
     update(update: ViewUpdate) {
       let reconfigured = update.startState.facet(staticHighlightConfig) !== update.state.facet(staticHighlightConfig);
-      if (update.docChanged || update.viewportChanged || reconfigured) {
+      if (update.viewportChanged || reconfigured) {
+        this.clearRecomputeTimer();
         let { token, widget } = this.getDeco(update.view);
         this.decorations = token;
         this.widgetDecorations = widget;
+        return;
+      }
+
+      if (update.docChanged) {
+        this.scheduleRecompute(update.view);
+      }
+    }
+
+    destroy() {
+      this.clearRecomputeTimer();
+    }
+
+    private scheduleRecompute(view: EditorView) {
+      this.clearRecomputeTimer();
+      this.recomputeTimer = window.setTimeout(() => {
+        this.recomputeTimer = null;
+        let { token, widget } = this.getDeco(view);
+        this.decorations = token;
+        this.widgetDecorations = widget;
+        view.dispatch({});
+      }, this.docChangeDebounceMs);
+    }
+
+    private clearRecomputeTimer() {
+      if (this.recomputeTimer !== null) {
+        window.clearTimeout(this.recomputeTimer);
+        this.recomputeTimer = null;
       }
     }
 
