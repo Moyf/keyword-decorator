@@ -1,96 +1,62 @@
-# 本地验收记录
+# Validation
 
-日期：2026-10-18。开发分支：`feat/rule-workspace`。验证环境：Windows、Obsidian 1.15.0（安装器 1.14.0）、Obsinote。
+## PR #1 review - 2026-10-21
 
-## 完成内容
+The review covers the rule workbench, group appearance inheritance and ordering,
+bulk rules, image markers, logical-line matching and settings compatibility.
+Fixtures use synthetic rules and contain no personal vault data.
 
-- 设置工作台重排；按面板自身宽度响应，普通设置窗口保留左右分栏，低于 460 px 时使用列表／编辑页导航。
-- 自动保存、总开关、规则开关、筛选、复制、删除撤销、鼠标拖动及键盘排序。
-- 单／多关键词合并为「关键词（每行一个）」；保留独立正则模式。旧 single 和逗号分隔 multiple 规则保留匹配含义，编辑关键词后转换为新模式。
-- 按行、表格 TSV、JSON 批量添加独立规则，可选继承外观；导入校验、合并／替换及保留顺序的导出。
-- 库内图片缩略图选择器、完整路径、粘贴 SVG、HTTP／HTTPS 网络图片、图片尺寸和默认关闭的隐藏文字。
-- 规则编译及图片解析缓存、编辑器可见范围匹配、输入去抖和串行写入；阅读视图不再为每个文本块重复序列化全部规则。
+### Automated checks
 
-## 验证结果
+- `npm test`: 37 tests pass, including legacy settings, grouped rule order,
+  explicit appearance overrides, import/export, bulk addition, overlapping
+  matches, line anchors and viewport boundaries.
+- `npm run lint`: Obsidian ESLint rules and Stylelint pass.
+- `npm run build`: TypeScript checking and production bundling pass.
+- `git diff --check`: passes.
+- `npm run build:local`: build and asset copying pass against an isolated fixture vault.
+- Official `obsidian-workflows` PR scan: 0 errors, 10 warnings, 0 recommendations.
+  The warnings concern partial browser support for underline decoration (6) and
+  `:has()` selectors scoped to Settings containers (4). They are reviewed
+  compatibility/performance advisories, not failed functional checks.
+  The final repeat could not refresh the community registry; source, build and
+  scanner checks still completed. This review does not certify store submission.
 
-| 验证 | 结果 |
-| --- | --- |
-| `npm run test` | 20 项通过，覆盖数据兼容、关键词／正则匹配、优先级、批量添加、导入导出和网络 URL |
-| `npm run lint` | ESLint、Obsidian 规则及 Stylelint 通过 |
-| `npm run build:local` | TypeScript 检查、生产构建及本地安装通过，主文件约 61.8 KiB |
-| 恢复后正则实机复核 | 11 项通过，覆盖编辑器、阅读视图、反例及两种匹配方式 |
-| 独立临时列表鼠标复核 | 拖动提交、Escape 取消均通过，设置窗口保持打开；未修改用户规则 |
-| 最终配置核对 | 14 条规则；验收前后配置值一致，与恢复快照一致 |
-| 实际设置布局 | 最终宿主窗口为左右分栏；早期还验证过默认 903×703 窗口、700 px 面板和 420 px 返回导航 |
+### Browser regression checks
 
-早期实机界面断言 21 项、图片／导入断言 10 项通过，包括自动保存、连续写入、保存失败、复制／删除／撤销、开关、隐藏文字与光标恢复、批量添加、本地图片选择、SVG 清理和图片尺寸。提供的 PRTS 图片链接实际加载为 180×180，URL 查询参数被保留。早期整批运行发生了下文所述的配置恢复竞态，因此不把该批次报告视为整批验收完全成功的证明。
+28 checks pass in a headless Chromium browser using real CodeMirror state,
+views and decorations, with an Obsidian UI/API shim. They cover:
 
-最终只读结果保存在本机忽略目录 `.local-qa/final-verification.json`；其中鼠标排序结果为 `b, a, c`，Escape 后仍为该顺序，没有第二次提交。临时 DOM 和快捷键作用域已清理。
+- Group Move up / Move down buttons, repeated moves, first/last/single-group
+  boundaries, complete rule-block ordering and preservation of rule settings.
+- Toolbar boundary states after keyboard reordering.
+- Bulk appearance templates including inherited group appearance.
+- Hidden source becoming editable on cursor entry or selection, with and
+  without whole-line styling; invalid or missing markers retain visible text.
+- Image failures restoring preview text, without late errors reviving stale text.
+- Reading-view logical-line styles preserving inline markup and adjacent lines.
 
-## 正则确认
+These checks validate browser rendering and event callbacks. They do not replace
+Obsidian host or physical-device testing. Obsidian was not running during this
+review, so the new buttons were not tested in the native Settings window.
 
-| 规则 | 表达式 | 实机匹配示例 |
-| --- | --- | --- |
-| 六位数 ID | `\b\d{6}\b` | `123456`、`654321`；5／7 位反例不匹配 |
-| 任务代号 | `P*Q\d{3,4}` | `PQ1234`、`Q123`；`PQ12` 不匹配 |
-| 钱钱 | `￥\d+` | `￥128`、`￥9999`；`USD128` 不匹配 |
+### Compatibility and limits
 
-`P*` 允许零个 P，因此 `Q123` 符合原表达式；未擅自修改。「数字」规则目前为禁用状态。
-
-## 配置恢复说明
-
-早期两个异步验收脚本重叠执行，导致临时拖动规则覆盖用户配置。这是验收脚本的恢复竞态；CLI 超时没有取消宿主中继续执行的脚本。
-
-已从笔记库 Git 提交 `223dd205a`（2026-10-18 15:15，UTC+8）提取完整 14 条规则并恢复到运行时和 `data.json`，包括「凯尔希／凯太后」及「阿米娅／amiya」的图片路径、尺寸、样式和开关。原始 12 条备份也保留在 `.local-qa/backup/`。最终重载插件后再次确认 14 条规则，最终只读验收前后配置值相同。
-
-恢复的精确基准是 15:15 Git 快照；无法逐项证明该时间之后未提交到 Git 的字段改动与事故前相同。没有通过猜测补写规则字段。
-
-旧的写入式个人库验收脚本已添加阻止执行的保护。后续需要替换配置的测试应使用独立测试库、持久备份并串行执行。调试中临时调整的后台计时器限速已恢复原值。
-
-## 性能边界与交付状态
-
-本机纯匹配基准：50 条规则、500 KB 文本、3 次执行合计约 24 ms。这不是完整界面耗时或任意正则的性能保证。复杂 JavaScript 正则仍可能阻塞界面；匹配数量／表达式长度上限不能提供强制执行超时。未做移动设备实测。
-
-源码位于本开发仓库，构建产物位于 `dist/`，已安装到本机 Obsinote。未提交、推送或发布；版本号保持原状，最低应用版本为 1.8.7。README、CHANGELOG 和 DEVELOPMENT 已更新。
-
-## 2026-10-19 布局与弹窗复核
-
-- 双列下限从 460 降至 360 CSS px；420、390、360 CSS px 均为双列且编辑区没有横向溢出，350 CSS px 保留单列导航。
-- 在用户当前 1.2 倍缩放、939×704 的独立 Settings 窗口中，实际面板宽约 518 CSS px，左／右列宽约 203／305 CSS px，符合 4:6。
-- 工作区限定在设置面板可用高度中；列表和编辑区分别滚动。通过实际 DOM 的滚动位置、外层滚动高度和几何位置检查两栏互不带动，外层不再撑长，并设置滚动边界隔离。原生自动化输入未送达的鼠标滚轮事件未计入成功证据。
-- 导入、导出、批量添加弹窗统一布局；自动校验当前输入、读取文件时禁止应用旧预览、迟到的文件读取不能覆盖较新的粘贴内容。导入摘要、方式和底部按钮在当前窗口高度下同时可见；高级区域改为图标、说明和分组字段。
-- 最终只读宿主检查 30 项通过，结果位于本机 `.local-qa/layout-dialogs-results.json`。弹窗只预览并取消，未点击导入／添加；用户 14 条规则的配置文件 SHA256 在验收前后相同。
-- Node 测试 20 项通过，ESLint、Stylelint、TypeScript 和本地构建通过；当前主文件约 65.4 KiB。已安装到 Obsinote，未提交或推送。
-
-## 2026-10-20 分组、继承与整行样式复核
-
-- 新增分组折叠、整组开关、组间移动规则、分组排序和所属分组选择。组开关不覆盖单规则开关；样式按未设置字段继承，明确的 false、null 和空字符串为覆盖值，支持逐项或全部恢复继承。
-- Advanced 增加默认关闭的整行样式，编辑器使用逻辑行装饰，阅读视图跨行内格式及换行片段应用样式并保留原始元素。正则使用 gm，完整逻辑行扫描防止视口裁切制造错误的行首匹配。
-- Lucide 支持宿主图标名称搜索、预览及名称，默认继承文字颜色；前缀背景可选。各类型分别缓存输入。Custom CSS 提供 `&` 示例和 placeholder。
-- 两栏改为 1:1；周边留白、透明设置面板、非红色选中标题和宽屏收起编辑区均已验证。实际独立窗口为 904×703、1.2 倍缩放，面板宽约 488 CSS px，两栏各约 231 CSS px。内容宽度 420、390、360 CSS px 下控件无横向溢出。
-- `npm run test` 37 项通过；ESLint、Stylelint、TypeScript 和 `build:local` 通过。50 条规则、500 KB 纯匹配基准三轮合计约 26 ms。另缓存编辑器文档文本以避免滚动时反复序列化，并去掉阅读节点的重复线性查找；该基准不是完整 UI 性能保证。
-- 使用独立插件实例、临时设置页与 DOM 完成 46 项宿主断言，包括编辑和阅读视图的第二行锚点、相邻行不受影响、继承和明确关闭、图标预览、缓存切换、分组投放末尾、取消拖动及图片失败后恢复所有行内片段。拖动检查使用临时列表的合成 PointerEvent 和测试专用 pointer-capture 适配，不将其表述为真实鼠标实测。结果位于忽略目录 `.local-qa/features-host-results.json`。
-- 安装前保留了最新 14 条规则的备份。重载过程中保存规范化使字段次序调整，并增加空 `groups` / `groupOrder`；逐字段比较确认全部规则值和顺序相同，未恢复旧配置。随后的 46 项宿主检查前后，运行时设置和配置文件 SHA256 均相同。
-- 最终构建主文件约 93.0 KiB，JS 和 CSS 的仓库构建文件与已安装资源 SHA256 一致。已查看当前设置页及 Advanced 截图；设置分组背景为透明。全部源码保持 LF，`git diff --check` 通过。未暂存、提交、推送或发布，版本号保持原状。
-
-## 2026-10-20 列表宽度、提示与拖动修复
-
-- 修复宿主设置行默认居中导致收起后布局按内容收窄：布局显式拉伸到可用宽度，实际列表宽度与布局同为约 472 CSS px。
-- 移除规则列表自身的 aria-label，避免在空白处显示 Rules tooltip；规则条目圆角改用较小的 radius-s。
-- 独立 Settings 中从主窗口移入的节点不满足目标窗口的 instanceof Element；改为检查节点类型。增加捕获失败时的文档捕获阶段跟踪，以及 lostpointercapture、丢失释放和无按钮移动的取消恢复，避免旧拖动状态卡住后续拖动。
-- Include marker in background 仅在有效 Background 启用时显示，立即跟随勾选、取消和恢复分组继承；保留其开关值。
-- 18 项针对性宿主检查通过，使用真实跨窗口节点的临时列表复现并覆盖拖动异常恢复；未将合成事件检查表述为实体鼠标验证。测试前后真实运行时配置和 data.json 均未变化。结果在忽略目录 .local-qa/reported-ui-results.json。
-- 37 项 Node 测试、lint、TypeScript 及本地构建通过；未提交或推送。
-
-## 提交前校验
-
-37 项 Node 测试、项目 lint 和差异检查通过。官方 obsidian-workflows PR 预演为 0 errors、22 warnings；其中 12 条 CSS 提醒来自被 Git 忽略的本地旧备份，当前 styles.css 的 10 条为 text-decoration 的浏览器部分支持提示及限定在插件设置页的 :has() 选择器提醒。源码的 type-aware ESLint 未报告错误。Action 末尾缺少 GITHUB_STEP_SUMMARY 的报错为本地执行环境没有 GitHub Job Summary 文件所致。
+- The manifest requires Obsidian 1.8.7 or later. The plugin version is unchanged;
+  this merge does not publish a release.
+- Notes remain unchanged: decorations affect presentation only. Earlier rules
+  take priority when matches overlap; moving a group changes that priority.
+- HTTP/HTTPS image markers request the configured image host. Vault images and
+  pasted SVG do not require those network requests.
+- Complex JavaScript regular expressions can still block the UI thread. Pattern
+  and match-count limits do not provide an execution timeout.
+- No mobile-device testing was performed during this review.
 
 ## 2026-10-21 Emoji shortcodes
 
 - 新增默认 Emoji shortcodes 分组，1,914 个 Unicode 别名共用一条匹配规则，字典数据为 42,442 UTF-8 字节；包含 gemoji 的固定来源及 MIT 许可。
 - 45 项 Node 测试通过；新增覆盖全部别名、未知短码、相邻短码、原有优先级、预设安装幂等、ID 冲突、删除保留、导入导出及批量添加。独立审查复现的批量入口模式遗漏及空 query 问题均已修复并回归。
-- Obsidian 1.15 中使用隔离插件实例、临时 CM6 编辑器及 DOM 完成 29 项检查：编辑和阅读显示、隐藏开关、光标及选择恢复、代码区域、整行样式、分组禁用、设置控件及匹配模式切换。测试前后真实运行时配置和 data.json 哈希不变；未创建或修改笔记。隔离检查不代表完整实体鼠标或移动设备验收。
+- Obsidian 1.15 中使用隔离插件实例、临时 CM6 编辑器及 DOM 完成 32 项检查：编辑和阅读显示、隐藏开关、光标及选择恢复、代码区域、整行样式、分组禁用、设置控件及匹配模式切换。测试前后真实运行时配置和 data.json 哈希不变；未创建或修改笔记。隔离检查不代表完整实体鼠标或移动设备验收。
 - 安装前后逐字段核对原有 16 条规则及 6 个分组，内容与顺序均保留，仅追加一个预设分组和规则。用户可关闭预设，重载不会重置修改或删除。
 - 项目 lint、TypeScript、本地构建及差异检查通过。最终官方 PR 预演为 0 errors、10 项既有 CSS 兼容性 warnings；缺少本地 GITHUB_STEP_SUMMARY 仍是 action 退出时的环境提示。
-- 生产 main.js 约 132.0 KiB，相比 PR #1 基线增加约 38.8 KiB；无需运行时网络请求或图片资源。版本号保持原状。
+- 生产 main.js 约 132.4 KiB，相比 PR #1 基线增加约 38.8 KiB；无需运行时网络请求或图片资源。版本号保持原状。

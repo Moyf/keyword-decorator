@@ -13,7 +13,7 @@ Open **Settings → Keyword Decorator** and create a rule. Choose **Keywords (on
 
 ## Groups and appearance
 
-Create groups with the folder-plus button. Fold a group, toggle all its rules together, drag rules between groups, or drag a group to move its rule block. The rule editor also has a Group selector. Ungrouped rules come first, followed by groups in list order; earlier rules win overlapping matches.
+Create groups with the folder-plus button. Fold a group, toggle all its rules together, drag rules between groups, or drag a group to move its rule block. The group editor also has Move up / Move down buttons; the first and last positions disable the unavailable direction. The rule editor has a Group selector. Ungrouped rules come first, followed by groups in list order; earlier rules win overlapping matches.
 
 Click a group name to configure shared appearance. Unset rule fields inherit the group; explicit values, including disabled toggles or cleared colors, override it. Use ↶ beside a field to restore inheritance, or reset all appearance fields from the rule editor. Disabling a group preserves each rule's own switch. Full exports preserve groups, group order and appearance.
 
@@ -103,7 +103,7 @@ Build outputs are in `dist/`. Local builds copy only plugin assets, preserving t
 
 设置页支持自动保存、总开关、单规则开关、拖动排序、复制、筛选和删除撤销。左右列宽为 1:1，列表与编辑区独立滚动；可随时收起设置，直到再次点击规则进入编辑。面板小于 360 CSS px 时使用单列导航。断点按缩放后的实际面板宽度判断。
 
-分组支持折叠、整组启用／禁用、组间拖动规则与整组排序，也可在规则编辑区选择所属分组。点击分组名称配置共享样式；规则未设置的字段继承分组，明确关闭或清空的字段优先使用自身配置，↶ 可恢复继承。未分组规则优先，其后按分组及组内顺序匹配。
+分组支持折叠、整组启用／禁用、组间拖动规则与整组排序；分组编辑区提供「上移／下移」按钮，首尾位置会禁用不可用的方向，也可在规则编辑区选择所属分组。点击分组名称配置共享样式；规则未设置的字段继承分组，明确关闭或清空的字段优先使用自身配置，↶ 可恢复继承。未分组规则优先，其后按分组及组内顺序匹配。
 
 Lucide 支持关键字筛选、图标预览与名称，默认继承文字颜色。各装饰类型分别记忆内容；背景可选包含前缀。Advanced 的「把样式附加到整行」默认关闭，开启后作用于关键字所在的整个逻辑行；自动换行仍算同一行。正则的 `^`／`$` 按逻辑行匹配。自定义 CSS 可使用上方示例中的 `&` 定位当前规则。
 

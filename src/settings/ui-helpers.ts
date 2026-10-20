@@ -30,7 +30,9 @@ export function renderPreview(el: HTMLElement, app: App, rule: SearchQuery, text
   const previewRule = rule.queryMode === "emoji-shortcodes"
     ? { ...rule, prefixType: "emoji" as const, prefixValue: lookupEmojiShortcode(text) ?? "" }
     : rule;
-  const prefix = createPrefixNode(app, el.ownerDocument, previewRule);
+  const prefix = createPrefixNode(app, el.ownerDocument, previewRule, () => {
+    if (prefix?.parentElement === el && !el.querySelector(".kd-preview-text")) el.createSpan({ cls: "kd-preview-text", text });
+  });
   if (prefix) el.appendChild(prefix);
   const hide = Boolean(rule.hideText && prefix && (prefix.dataset.kdImageValid === "true" || (previewRule.prefixType === "emoji" && prefix.textContent?.trim())));
   if (!hide) el.createSpan({ cls: "kd-preview-text", text });

@@ -4,49 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Breaking Changes
+
+- **Obsidian compatibility**: Require Obsidian 1.8.7 or later; update Obsidian before installing this update.
+
 ### 🚀 Added
 
 - **Emoji shortcodes**: Add a default group with 1,914 offline Unicode aliases, including `:happy:`, using one matcher; preserve existing rule priority and preset edits across reload and import/export, and support hiding emoji shortcode text with cursor recovery.
 
-- **Rule workbench**: Add automatic saving, a master switch, per-rule toggles, drag and keyboard reordering, duplication, filtering, and deletion undo.
-- **Bulk rules**: Preview and add independent rules from keyword lines, tab-separated spreadsheet columns, or JSON; optionally inherit the selected rule's appearance.
-- **Image markers**: Paste SVG code, pick vault images with thumbnail search, configure image dimensions, and optionally hide matched text while preserving editable source.
-- **Network images**: Add a dedicated HTTP/HTTPS image URL source with live preview, preserved URL query parameters, size controls, and image-only display.
-- **Groups and inheritance**: Collapse, toggle and reorder groups; move rules between them and inherit unset appearance fields with individual overrides and reset controls.
-- **Appearance controls**: Add optional whole-line styling, marker backgrounds, default Lucide text-color inheritance, searchable icon previews, per-type marker caches and a scoped Custom CSS example.
+- **Rule workbench**: Manage rules with automatic saving, master and per-rule switches, filtering, duplication, reordering and deletion undo, in a responsive layout with independently scrolling panes.
+- **Groups and inheritance**: Organize rules into collapsible groups, enable or disable a group together, share appearance with per-rule overrides, and reorder whole groups by dragging or with Move up / Move down buttons.
+- **Bulk rule management**: Preview and add rules from keyword lines, spreadsheet columns or JSON, reuse the selected appearance, and import/export rules with their order and groups preserved.
+- **Image and icon markers**: Search Lucide icons and vault images, use HTTP/HTTPS image URLs or pasted SVG, adjust dimensions and hide matched text; source text remains editable and returns when an image fails.
 
 ### ⚡ Changed
 
-- **Settings fixes**: Fill the available width when the editor is collapsed, remove the blank-list tooltip, recover cross-window dragging, show marker-background options only with an enabled background, and reduce rule corner rounding.
-
-- **Keyword matching**: Combine the single/multiple keyword controls into Keywords (one per line), retaining legacy matching semantics and the separate regular-expression mode.
-
-- **Responsive layout**: Use equal columns with independent pane scrolling, surrounding spacing and an editor-collapse action; keep two columns down to 360 CSS px of panel width.
-- **Line anchors**: Match regex `^` and `$` against logical lines in both views, without treating inline formatting or a clipped viewport as a new line.
-- **Settings dialogs**: Give import, export and bulk add compact footers and automatic previews; show empty-replacement confirmation only when needed and group advanced fields in an icon disclosure.
-- **Persistence and rendering**: Preserve legacy settings and import formats, export rule order, cache rule compilation and image resolution, and limit editor matching to visible content.
+- **Matching and line styles**: Use one Keywords field for one or several lines, with legacy rule semantics preserved. Apply appearance to a whole logical line, and match regex `^` / `$` consistently in editing and reading views.
 
 <details>
 <summary>中文说明（点击展开）</summary>
+
+### ⚠️ 破坏性变更
+
+- **Obsidian 兼容性**：最低要求调整为 Obsidian 1.8.7，请先更新 Obsidian 再安装本次更新。
 
 ### 🚀 新增
 
 - **Emoji 短码**：新增含 1,914 个离线 Unicode 别名的默认分组，支持 `:happy:`，整套字典共用一条匹配规则；保留现有优先级、预设编辑及导入导出状态，支持隐藏短码文字并在光标移入时恢复原文。
 
-- **规则工作台**：支持自动保存、总开关、单规则开关、拖动及键盘排序、复制、筛选和删除撤销。
-- **批量规则**：通过关键词行、表格制表符分列或 JSON 预览并添加独立规则，可选继承所选规则的外观。
-- **图片装饰**：支持粘贴 SVG、带缩略图搜索的库内图片选择、图片尺寸，以及隐藏匹配文字并保留可编辑原文。
-- **网络图片**：新增 HTTP／HTTPS 图片链接类型，支持即时预览、保留 URL 查询参数、尺寸调整和只显示图片。
-- **分组与继承**：支持折叠、整组开关、整组排序及组间移动规则；未配置的外观继承分组，支持逐项覆盖和恢复继承。
-- **外观控制**：增加整行样式、前缀背景、Lucide 默认继承文字颜色、图标搜索预览、各类型独立缓存和 Custom CSS 示例。
+- **规则工作台**：支持自动保存、总开关和单规则开关、筛选、复制、排序和删除撤销；采用响应布局，列表与编辑区独立滚动。
+- **分组与继承**：支持可折叠分组、整组启停、共享外观及单规则覆盖；可拖动整组排序，也可使用「上移／下移」按钮。
+- **批量规则管理**：通过关键词行、表格列或 JSON 预览并添加规则，可复用所选外观；导入导出保留规则顺序与分组。
+- **图片与图标装饰**：支持搜索 Lucide 图标和库内图片、HTTP／HTTPS 图片链接、粘贴 SVG、尺寸设置与隐藏匹配文字；原文仍可编辑，图片失败时恢复显示。
 
 ### ⚡ 调整
 
-- **关键词匹配**：合并单关键词和多关键词控件为「关键词（每行一个）」，保留旧规则的匹配含义和独立正则模式。
-
-- **响应布局**：左右列宽改为 1:1，增加周边留白和收起设置按钮；双栏独立滚动，面板达到 360 CSS px 即保留双栏。
-- **行首正则**：编辑和阅读视图均按逻辑行处理 `^`／`$`，不会将行内格式或视口裁切位置误当行首。
-- **设置弹窗**：导入、导出和批量添加统一为紧凑操作栏及自动预览；清空确认仅按需显示，高级字段改为带图标的折叠分组。
-- **保存与渲染**：保留旧设置与导入格式，导出规则顺序，缓存匹配规则编译和图片解析，并只匹配编辑器可见区域。
+- **匹配与整行样式**：统一使用「关键词」字段填写一行或多行，保留旧规则的匹配含义；支持整行外观，编辑和阅读视图中的正则 `^`／`$` 均按逻辑行匹配。
 
 </details>

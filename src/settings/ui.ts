@@ -179,7 +179,11 @@ export class SettingTab extends PluginSettingTab {
     const header = this.editor.createDiv("kd-editor-toolbar");
     iconButton(header, "panel-right-close", localize("Collapse settings", "收起设置"), () => this.collapseEditor()).buttonEl.addClass("kd-back");
     header.createSpan({ cls: "kd-caption", text: localize("Group appearance", "分组样式") });
-    iconButton(header, "trash-2", localize("Remove group, keep rules", "删除分组，保留规则"), () => this.removeGroup(id)).buttonEl.addClass("kd-delete");
+    const buttons = header.createDiv("kd-actions");
+    const order = repairGroupOrder(this.plugin.settings.staticHighlighter), index = order.indexOf(id);
+    iconButton(buttons, "arrow-up", t("up"), () => this.moveGroup(id, -1)).setDisabled(index <= 0);
+    iconButton(buttons, "arrow-down", t("down"), () => this.moveGroup(id, 1)).setDisabled(index >= order.length - 1);
+    iconButton(buttons, "trash-2", localize("Remove group, keep rules", "删除分组，保留规则"), () => this.removeGroup(id)).buttonEl.addClass("kd-delete");
     const input = new TextComponent(this.editor).setValue(group.name).setPlaceholder(localize("Group name", "分组名称")).onChange(value => { group.name = value; this.changed(); this.renderList(); });
     input.inputEl.addClass("kd-name-input"); input.inputEl.setAttribute("aria-label", localize("Group name", "分组名称"));
     this.editor.createDiv({ cls: "kd-caption kd-group-description", text: localize("Rules inherit unset values from this group. Each rule can override individual values.", "规则未配置的样式会继承这里的设置；每条规则都可以单独覆盖。") });
@@ -238,7 +242,7 @@ export class SettingTab extends PluginSettingTab {
   private moveGroup(id: string, delta: number) {
     const config = this.plugin.settings.staticHighlighter, order = repairGroupOrder(config), index = order.indexOf(id), target = index + delta;
     if (target < 0 || target >= order.length) return;
-    if (moveRuleGroup(config, id, order[delta > 0 ? target + 1 : target])) { this.changed(); this.renderList(); }
+    if (moveRuleGroup(config, id, order[delta > 0 ? target + 1 : target])) { this.changed(); this.renderList(); if (this.selectedGroupId) this.renderEditor(); }
   }
   private commitDrop(action: GroupedReorderAction) {
     const config = this.plugin.settings.staticHighlighter;
@@ -248,7 +252,7 @@ export class SettingTab extends PluginSettingTab {
     this.changed(); this.renderList(); this.renderEditor();
   }
   private bulkAdd() {
-    const config = this.plugin.settings.staticHighlighter, template = this.selectedRuleId ? config.queries[this.selectedRuleId] : undefined;
+    const config = this.plugin.settings.staticHighlighter, template = this.selectedRuleId ? getEffectiveRule(config.queries[this.selectedRuleId], config.groups) : undefined;
     new BulkAddModal(this.app, (rules, order, groups, groupOrder) => {
       const previous = new Set(Object.keys(this.plugin.settings.staticHighlighter.queries));
       this.plugin.settings = appendBulkRules(this.plugin.settings, rules, order, groups, groupOrder);
