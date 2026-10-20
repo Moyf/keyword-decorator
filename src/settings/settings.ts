@@ -3,7 +3,7 @@ import { ignoredWords } from "./ignoredWords";
 
 export type markTypes = "line" | "match" | "group" | "start" | "end";
 export type PrefixType = "none" | "emoji" | "icon" | "image" | "url" | "svg";
-export type QueryMode = "keywords" | "single" | "multiple" | "regex";
+export type QueryMode = "keywords" | "single" | "multiple" | "regex" | "emoji-shortcodes";
 
 export type SettingValue = number | string | boolean;
 export interface CSSSettings {
@@ -51,6 +51,7 @@ export interface StaticHighlightOptions {
   queryOrder: string[];
   groups?: Record<string, RuleGroup>;
   groupOrder?: string[];
+  installedPresets?: string[];
 }
 
 export type HighlighterOptions = SelectionHighlightOptions | StaticHighlightOptions;
@@ -80,7 +81,7 @@ export const DEFAULT_SETTINGS: DynamicHighlightsSettings = {
 };
 
 const validPrefixTypes: PrefixType[] = ["none", "emoji", "icon", "image", "url", "svg"];
-const validQueryModes: QueryMode[] = ["keywords", "single", "multiple", "regex"];
+const validQueryModes: QueryMode[] = ["keywords", "single", "multiple", "regex", "emoji-shortcodes"];
 const validMarks: markTypes[] = ["line", "match", "group", "start", "end"];
 export const MAX_IMAGE_DIMENSION = 512;
 
@@ -213,7 +214,12 @@ export function normalizeSettings(raw: unknown): DynamicHighlightsSettings {
       highlightDelay: Math.max(0, numberOr("highlightDelay", defaults.highlightDelay)),
       ignoredWords: ignored,
     },
-    staticHighlighter: { ...staticOptions, queries, queryOrder, groups, groupOrder },
+    staticHighlighter: {
+      ...staticOptions, queries, queryOrder, groups, groupOrder,
+      installedPresets: Array.isArray(staticOptions.installedPresets)
+        ? [...new Set(staticOptions.installedPresets.filter((id): id is string => typeof id === "string"))]
+        : [],
+    },
   };
 }
 

@@ -33,6 +33,7 @@ export class ExportModal extends Modal {
         queryOrder,
         groups: settings.staticHighlighter.groups ?? {},
         groupOrder: settings.staticHighlighter.groupOrder ?? [],
+        installedPresets: settings.staticHighlighter.installedPresets ?? [],
       },
     }, null, 2);
   }

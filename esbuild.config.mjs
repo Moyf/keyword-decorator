@@ -38,6 +38,7 @@ esbuild
       js: banner,
     },
     minify: prod ? true : false,
+    charset: "utf8",
     entryPoints: ["src/main.ts"],
     bundle: true,
     external: [

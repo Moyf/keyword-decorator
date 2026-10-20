@@ -31,6 +31,14 @@ Use `&` in Custom CSS to target this rule's matches, or the line when whole-line
 }
 ```
 
+## Emoji shortcodes
+
+The default **Emoji shortcodes** group displays `:smile:` as 😄, `:heart:` as ❤️ and `:happy:` as 😄, in both the editor and reading view. Its single rule recognizes 1,914 aliases using a bundled local dictionary. No images, extra runtime dependency or network connection are required; appearance follows the device's emoji font. Unknown names stay unchanged. Discord server custom emoji and animated emoji are not included.
+
+The group is enabled and collapsed initially. It is added once after existing rules, preserving their priority; renamed, disabled or deleted presets are not reset on reload. Switch off the group or rule to pause it. **Hide matched text** is enabled for this preset: move the cursor into a match to edit the original shortcode, or turn the switch off to show the emoji alongside its shortcode. Notes keep their original Markdown. You can also select **Emoji shortcodes** as a rule's match type.
+
+The aliases come from [gemoji](https://github.com/github/gemoji), with an additional `happy` alias. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the pinned source and license.
+
 ## Images and SVG
 
 Choose **Vault image** to search image names and full paths, with thumbnails. The picker saves the full vault path so files with identical names in different folders remain distinct. You can also enter a vault path or wikilink manually.
@@ -39,7 +47,7 @@ Choose **SVG code** and paste a complete `<svg>…</svg>` element. Active conten
 
 Choose **Image URL** to paste a direct HTTP or HTTPS image link, including URLs with query parameters. Network images share the same size and hide-text controls as vault images. The preview loads the image directly from its host, without sending a referrer. Invalid links and failed loads leave the original text readable.
 
-**Hide matched text** is off by default. For image and SVG markers, it leaves only the marker visible. Move the editor cursor into a match to reveal and edit its original text. The underlying Markdown is preserved.
+**Hide matched text** is off by default for ordinary rules. For emoji, image and SVG markers, it leaves only the marker visible. Move the editor cursor into a match to reveal and edit its original text. The underlying Markdown is preserved.
 
 The plugin runs locally. An image URL beginning with `https://` or `http://` connects to that image's host when displayed; using vault images or pasted SVG avoids these network requests. No account, telemetry, or paid service is required.
 
@@ -88,6 +96,8 @@ npm run build:local
 Build outputs are in `dist/`. Local builds copy only plugin assets, preserving the vault's existing `data.json`. Reload the plugin, then open its settings. Use `npm run build:local:set` to build and open settings when Hot Reload is active.
 
 ## 中文说明
+
+默认分组 **Emoji shortcodes** 可将 `:smile:`、`:heart:`、`:happy:` 显示为对应的系统 Emoji。共支持 1,914 个别名，使用一条规则和本地字典，无需网络或图片素材；未知短码保留原样，不含 Discord 服务器自定义表情及动图。该分组首次启用时追加到现有规则之后，默认开启并收起；后续重载会保留改名、关闭和删除操作。预设默认隐藏短码文字，光标移入即可编辑原文；关闭「隐藏匹配文字」可同时显示 Emoji 与短码。普通 Emoji 规则也支持此开关。
 
 在编辑器和阅读视图中，为关键词添加颜色、文字样式、Emoji、Lucide 图标、库内图片或 SVG。插件只改变显示，不改动笔记原文。
 

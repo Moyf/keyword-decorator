@@ -2,6 +2,7 @@ import { App, ButtonComponent } from "obsidian";
 import { t } from "../i18n";
 import { createPrefixNode } from "../markers";
 import { SearchQuery } from "./settings";
+import { lookupEmojiShortcode } from "../emoji/shortcodes";
 
 let fieldId = 0;
 export function field(parent: HTMLElement, text: string) {
@@ -14,6 +15,7 @@ export function iconButton(parent: HTMLElement, icon: string, label: string, act
 }
 export function ruleLabel(rule: SearchQuery) { return rule.name?.trim() || rule.query.trim().split(/[\n,]/)[0] || t("unnamed"); }
 export function sampleText(rule: SearchQuery) {
+  if (rule.queryMode === "emoji-shortcodes") return ":smile:";
   const value = rule.query.trim();
   if (rule.queryMode === "regex" || rule.regex) return value ? `/${value}/` : t("previewText");
   return value.split(rule.queryMode === "multiple" ? /[\n,]/ : /\r?\n/)[0] || t("previewText");
@@ -25,11 +27,14 @@ export function renderPreview(el: HTMLElement, app: App, rule: SearchQuery, text
     "--kd-weight": rule.fontWeight || "inherit", "--kd-style": rule.italic ? "italic" : "normal",
     "--kd-decoration": rule.underline ? "underline" : "none",
   });
-  const prefix = createPrefixNode(app, el.ownerDocument, rule, () => {
+  const previewRule = rule.queryMode === "emoji-shortcodes"
+    ? { ...rule, prefixType: "emoji" as const, prefixValue: lookupEmojiShortcode(text) ?? "" }
+    : rule;
+  const prefix = createPrefixNode(app, el.ownerDocument, previewRule, () => {
     if (prefix?.parentElement === el && !el.querySelector(".kd-preview-text")) el.createSpan({ cls: "kd-preview-text", text });
   });
   if (prefix) el.appendChild(prefix);
-  const hide = Boolean(rule.hideText && prefix?.dataset.kdImageValid === "true" && ["image", "url", "svg"].includes(rule.prefixType || ""));
+  const hide = Boolean(rule.hideText && prefix && (prefix.dataset.kdImageValid === "true" || (previewRule.prefixType === "emoji" && prefix.textContent?.trim())));
   if (!hide) el.createSpan({ cls: "kd-preview-text", text });
   el.setAttribute("aria-label", text);
 }

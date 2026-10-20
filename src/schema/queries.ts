@@ -70,7 +70,7 @@ export const queriesSchema = {
           type: "integer",
         },
         queryMode: {
-          enum: ["keywords", "single", "multiple", "regex"],
+          enum: ["keywords", "single", "multiple", "regex", "emoji-shortcodes"],
           type: "string",
         },
         mark: {

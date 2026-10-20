@@ -7,6 +7,7 @@ import { clearImageCache, createPrefixNode } from "./markers";
 import { DynamicHighlightsSettings, normalizeSettings } from "./settings/settings";
 import { SettingTab } from "./settings/ui";
 import { getEffectiveQueries } from "./settings/groups";
+import { installDefaultPresets } from "./settings/presets";
 
 interface CustomCSS { css: string; enabled: boolean }
 interface PendingSave { resolve: () => void; reject: (error: unknown) => void }
@@ -32,7 +33,7 @@ export default class DynamicHighlightsPlugin extends Plugin {
   private imageRefreshTimer: number | null = null;
 
   async onload() {
-    this.settings = normalizeSettings(await this.loadData());
+    await this.loadSettings();
     this.settingsTab = new SettingTab(this.app, this);
     this.addSettingTab(this.settingsTab);
     addIcons();
@@ -51,6 +52,7 @@ export default class DynamicHighlightsPlugin extends Plugin {
 
   async loadSettings() {
     this.settings = normalizeSettings(await this.loadData());
+    if (installDefaultPresets(this.settings.staticHighlighter)) await this.saveData(this.settings);
   }
 
   settingsChanged(): Promise<void> {
@@ -349,7 +351,7 @@ export default class DynamicHighlightsPlugin extends Plugin {
               for (const hidden of hiddenElements.get(matchKey(match)) || []) hidden.removeClass("keyword-decorator-hidden-text");
             });
             if (prefix) {
-              if (markerRule.hideText && prefix.dataset.kdImageValid === "true") hiddenMatches.add(matchKey(match));
+              if (markerRule.hideText && (prefix.dataset.kdImageValid === "true" || (markerRule.prefixType === "emoji" && prefix.textContent?.trim()))) hiddenMatches.add(matchKey(match));
             }
           }
           if (prefix) wrapper.appendChild(prefix);

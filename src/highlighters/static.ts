@@ -132,6 +132,19 @@ const staticHighlighter = ViewPlugin.fromClass(
         const nodeProps = syntaxNode.type.prop(tokenClassNodeProp)?.split(" ") || [];
         if (nodeProps.some(token => token === "hmd-codeblock" || token === "hmd-frontmatter")) continue;
         const rule = match.rule as SearchQueries[string];
+        if (rule.queryMode === "emoji-shortcodes") {
+          let node: typeof syntaxNode | null = tree.resolveInner(Math.min(from + 1, state.doc.length));
+          let excluded = false;
+          while (node) {
+            const tokens = node.type.prop(tokenClassNodeProp)?.split(" ") || [];
+            if (tokens.some(token => ["inline-code", "hmd-codeblock", "hmd-frontmatter", "math", "hmd-math"].includes(token))) {
+              excluded = true;
+              break;
+            }
+            node = node.parent;
+          }
+          if (excluded) continue;
+        }
         const classes = [toInternalClassName(match.ruleId), ...(rule.class || "").split(/\s+/).filter(Boolean)];
         if (rule.styleWholeLine) {
           for (let lineNumber = startLine.number; lineNumber <= endLine.number; lineNumber++) {
@@ -145,10 +158,11 @@ const staticHighlighter = ViewPlugin.fromClass(
         const prefixValue = rule.prefixValue ?? rule.prefixValues?.[rule.prefixType || "none"] ?? "";
         const hasImageMarker = (rule.prefixType === "image" || rule.prefixType === "url") && !!runtimeApp && !!resolveImage(runtimeApp, prefixValue) && !isImageSourceFailed(runtimeApp, prefixValue);
         const hasSvgMarker = sameLine && rule.prefixType === "svg" && isSvgMarkupValid(view.dom.ownerDocument, prefixValue);
+        const hasEmojiMarker = rule.prefixType === "emoji" && !!(prefixValue || "✨").trim();
         const selectionOverlaps = rule.hideText && state.selection.ranges.some(selection =>
           selection.empty ? selection.head >= from && selection.head <= to : selection.from < to && selection.to > from
         );
-        const hideText = rule.hideText && sameLine && (hasImageMarker || hasSvgMarker) && !selectionOverlaps;
+        const hideText = rule.hideText && sameLine && (hasImageMarker || hasSvgMarker || hasEmojiMarker) && !selectionOverlaps;
         if (hideText) classes.push("keyword-decorator-hide-text");
         if (!rule.styleWholeLine) {
           tokenDecos.push(Decoration.mark({ class: classes.join(" "), attributes: { "data-contents": state.sliceDoc(from, to) } }).range(from, to));
