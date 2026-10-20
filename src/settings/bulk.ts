@@ -42,7 +42,7 @@ function entriesFromJson(raw: unknown): JsonRuleData | null {
     ? settings.queries as Record<string, unknown>
     : settings;
   const entries = Object.entries(source)
-    .filter(([key]) => !["queryOrder", "groups", "groupOrder", "enabled", "selectionHighlighter", "staticHighlighter"].includes(key))
+    .filter(([key]) => !["queryOrder", "groups", "groupOrder", "installedPresets", "enabled", "selectionHighlighter", "staticHighlighter"].includes(key))
     .map(([key, value]) => ({ key, value: value as BulkEntry }));
   const byId = new Map(entries.map(entry => [entry.key, entry]));
   const order = Array.isArray(settings.queryOrder) ? settings.queryOrder : [];
@@ -138,7 +138,7 @@ export function parseBulkRules(
     const keyword = typeof entry.keyword === "string" ? entry.keyword.trim() : "";
     const queryText = typeof entry.query === "string" ? entry.query.trim() : keyword;
     const name = typeof entry.name === "string" && entry.name.trim() ? entry.name.trim() : queryText;
-    if (!queryText) {
+    if (!queryText && entry.queryMode !== "emoji-shortcodes") {
       errors.push(`${label}: keyword is empty.`);
       return;
     }
@@ -164,7 +164,7 @@ export function parseBulkRules(
       errors.push(`${label}: regex must be a boolean.`);
       return;
     }
-    if (candidate.queryMode !== undefined && (typeof candidate.queryMode !== "string" || !["keywords", "single", "multiple", "regex"].includes(candidate.queryMode))) {
+    if (candidate.queryMode !== undefined && (typeof candidate.queryMode !== "string" || !["keywords", "single", "multiple", "regex", "emoji-shortcodes"].includes(candidate.queryMode))) {
       errors.push(`${label}: unsupported query mode.`);
       return;
     }

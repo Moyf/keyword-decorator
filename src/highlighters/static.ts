@@ -132,6 +132,19 @@ const staticHighlighter = ViewPlugin.fromClass(
         const nodeProps = syntaxNode.type.prop(tokenClassNodeProp)?.split(" ") || [];
         if (nodeProps.some(token => token === "hmd-codeblock" || token === "hmd-frontmatter")) continue;
         const rule = match.rule as SearchQueries[string];
+        if (rule.queryMode === "emoji-shortcodes") {
+          let node: typeof syntaxNode | null = tree.resolveInner(Math.min(from + 1, state.doc.length));
+          let excluded = false;
+          while (node) {
+            const tokens = node.type.prop(tokenClassNodeProp)?.split(" ") || [];
+            if (tokens.some(token => ["inline-code", "hmd-codeblock", "hmd-frontmatter", "math", "hmd-math"].includes(token))) {
+              excluded = true;
+              break;
+            }
+            node = node.parent;
+          }
+          if (excluded) continue;
+        }
         const classes = [toInternalClassName(match.ruleId), ...(rule.class || "").split(/\s+/).filter(Boolean)];
         if (rule.styleWholeLine) {
           for (let lineNumber = startLine.number; lineNumber <= endLine.number; lineNumber++) {

@@ -8,6 +8,7 @@ import { installDefaultPresets } from "../src/settings/presets";
 import { normalizeSettings, SearchQuery } from "../src/settings/settings";
 import { ExportModal } from "../src/settings/export";
 import { applySettingsImport, parseSettingsImport } from "../src/settings/import";
+import { appendBulkRules, parseBulkRules } from "../src/settings/bulk";
 
 function preset() {
   const settings = normalizeSettings(undefined);
@@ -103,4 +104,25 @@ void test("export/import retains shortcode mode, visibility, group state and ins
 void test("invalid preset history and malformed shortcode modes are rejected on import", () => {
   assert.ok(parseSettingsImport({ queries: {}, installedPresets: [1] }).errors.length);
   assert.ok(parseSettingsImport({ rule: { query: ":smile:", queryMode: "emoji-shortcodes", regex: true } }).errors.length);
+});
+
+void test("bulk add accepts full preset exports and remaps colliding groups and rules", () => {
+  const settings = preset();
+  const config = settings.staticHighlighter;
+  const parsed = parseBulkRules(ExportModal.serialize(config.queries, settings), undefined, config.queryOrder, false, config.groupOrder);
+  assert.deepEqual(parsed.errors, []);
+  assert.equal(parsed.queryOrder.length, 1);
+  const added = appendBulkRules(settings, parsed.rules, parsed.queryOrder, parsed.groups, parsed.groupOrder);
+  assert.equal(added.staticHighlighter.queryOrder.length, 2);
+  const copy = added.staticHighlighter.queries[added.staticHighlighter.queryOrder[1]];
+  assert.equal(copy.queryMode, "emoji-shortcodes");
+  assert.notEqual(copy.groupId, config.groupOrder![0]);
+  assert.equal(added.staticHighlighter.groups![copy.groupId!].style?.hideText, true);
+  assert.equal(findMatches(":heart:", compileRules(getEffectiveQueries(added.staticHighlighter), added.staticHighlighter.queryOrder)).length, 1);
+  assert.deepEqual(parseBulkRules(JSON.stringify({ ...config.queries, groups: config.groups, groupOrder: config.groupOrder, installedPresets: config.installedPresets })).errors, []);
+  config.queries[config.queryOrder[0]].query = "";
+  const emptyExample = parseBulkRules(ExportModal.serialize(config.queries, settings));
+  assert.deepEqual(emptyExample.errors, []);
+  assert.equal(emptyExample.rules[emptyExample.queryOrder[0]].query, "");
+  assert.equal(findMatches(":happy:", compileRules(getEffectiveQueries({ ...config, queries: emptyExample.rules }), emptyExample.queryOrder)).length, 1);
 });

@@ -56,7 +56,7 @@ export function renderEditor(container: HTMLElement, app: App, rule: SearchQuery
   mode.createEl("option", { value: "emoji-shortcodes", text: "Emoji shortcodes" });
   mode.value = rule.queryMode === "emoji-shortcodes" ? "emoji-shortcodes" : rule.queryMode === "regex" || rule.regex ? "regex" : "keywords";
   const queryField = field(match, t("query"));
-  const visibleQuery = rule.queryMode === "multiple" ? rule.query.split(/[\n,]/).map(value => value.trim()).filter(Boolean).join("\n") : rule.query;
+  const visibleQuery = rule.queryMode === "emoji-shortcodes" ? ":smile:" : rule.queryMode === "multiple" ? rule.query.split(/[\n,]/).map(value => value.trim()).filter(Boolean).join("\n") : rule.query;
   const query = new TextAreaComponent(queryField.wrap).setValue(visibleQuery).onChange(value => {
     rule.query = value; rule.queryMode = mode.value as QueryMode; rule.regex = mode.value === "regex"; validate(); change();
   });
@@ -74,7 +74,7 @@ export function renderEditor(container: HTMLElement, app: App, rule: SearchQuery
     hint.setText(shortcodes ? localize("Matches all known :shortcodes:, including :smile:, :heart: and :happy:. Unknown names stay unchanged.", "匹配全部已知 :shortcodes:，例如 :smile:、:heart:、:happy:；未知名称保留原样。") : mode.value === "regex" ? localize("Enter a pattern without / delimiters. ^ and $ match the start and end of each line.", "填写表达式，不包含两侧的 /；^ 和 $ 分别匹配每行的开头和结尾。") : t("queryHint"));
   }
   mode.addEventListener("change", () => {
-    rule.query = mode.value === "emoji-shortcodes" ? ":smile:" : query.getValue();
+    if (rule.queryMode !== "emoji-shortcodes" && mode.value !== "emoji-shortcodes") rule.query = query.getValue();
     rule.queryMode = mode.value as QueryMode; rule.regex = mode.value === "regex";
     validate(); change(); actions.refresh?.();
   });
