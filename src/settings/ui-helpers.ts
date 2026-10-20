@@ -25,7 +25,9 @@ export function renderPreview(el: HTMLElement, app: App, rule: SearchQuery, text
     "--kd-weight": rule.fontWeight || "inherit", "--kd-style": rule.italic ? "italic" : "normal",
     "--kd-decoration": rule.underline ? "underline" : "none",
   });
-  const prefix = createPrefixNode(app, el.ownerDocument, rule);
+  const prefix = createPrefixNode(app, el.ownerDocument, rule, () => {
+    if (prefix?.parentElement === el && !el.querySelector(".kd-preview-text")) el.createSpan({ cls: "kd-preview-text", text });
+  });
   if (prefix) el.appendChild(prefix);
   const hide = Boolean(rule.hideText && prefix?.dataset.kdImageValid === "true" && ["image", "url", "svg"].includes(rule.prefixType || ""));
   if (!hide) el.createSpan({ cls: "kd-preview-text", text });
