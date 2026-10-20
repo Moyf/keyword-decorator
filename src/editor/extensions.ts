@@ -13,8 +13,6 @@ import {
   drawSelection,
   dropCursor,
   EditorView,
-  highlightActiveLine,
-  highlightActiveLineGutter,
   highlightSpecialChars,
   keymap,
   lineNumbers,
