@@ -9,6 +9,7 @@ export interface ParsedSettingsImport {
   groups?: Record<string, RuleGroup>;
   groupOrder?: string[];
   enabled?: boolean;
+  installedPresets?: string[];
 }
 
 /** Parse old query-map exports and the newer full-settings package without mutating live settings. */
@@ -24,7 +25,7 @@ export function parseSettingsImport(raw: unknown): { value?: ParsedSettingsImpor
   const queriesRaw = settingsSource.queries && typeof settingsSource.queries === "object" && !Array.isArray(settingsSource.queries)
     ? settingsSource.queries as Record<string, unknown>
     : settingsSource;
-  const reserved = new Set(["enabled", "queryOrder", "groups", "groupOrder", "selectionHighlighter", "staticHighlighter", "version"]);
+  const reserved = new Set(["enabled", "queryOrder", "groups", "groupOrder", "installedPresets", "selectionHighlighter", "staticHighlighter", "version"]);
   const queries = Object.create(null) as SearchQueries;
   for (const [id, value] of Object.entries(queriesRaw)) {
     if (reserved.has(id)) continue;
@@ -47,7 +48,7 @@ export function parseSettingsImport(raw: unknown): { value?: ParsedSettingsImpor
     }
     queries[id] = query;
     const candidate = value as Record<string, unknown>;
-    const mode = typeof candidate.queryMode === "string" && ["keywords", "single", "multiple", "regex"].includes(candidate.queryMode)
+    const mode = typeof candidate.queryMode === "string" && ["keywords", "single", "multiple", "regex", "emoji-shortcodes"].includes(candidate.queryMode)
       ? candidate.queryMode
       : candidate.regex === true ? "regex" : "single";
     if (candidate.regex !== undefined && typeof candidate.regex !== "boolean") {
@@ -68,7 +69,7 @@ export function parseSettingsImport(raw: unknown): { value?: ParsedSettingsImpor
         errors.push(`Rule “${id}” has an invalid ${field} (expected 1–${MAX_IMAGE_DIMENSION} pixels).`);
       }
     }
-    if (candidate.queryMode !== undefined && (typeof candidate.queryMode !== "string" || !["keywords", "single", "multiple", "regex"].includes(candidate.queryMode))) {
+    if (candidate.queryMode !== undefined && (typeof candidate.queryMode !== "string" || !["keywords", "single", "multiple", "regex", "emoji-shortcodes"].includes(candidate.queryMode))) {
       errors.push(`Rule “${id}” has an unsupported query mode.`);
     }
     const stringFields = ["class", "name", "fontWeight", "prefixValue", "css"];
@@ -108,7 +109,10 @@ export function parseSettingsImport(raw: unknown): { value?: ParsedSettingsImpor
     }
   }
   const enabled = typeof root.enabled === "boolean" ? root.enabled : undefined;
-  return errors.length ? { errors } : { value: { queries, queryOrder, groups, groupOrder, enabled }, errors };
+  const installed = settingsSource.installedPresets;
+  if (installed !== undefined && (!Array.isArray(installed) || installed.some(id => typeof id !== "string"))) errors.push("Installed presets must be an array of IDs.");
+  const installedPresets = Array.isArray(installed) ? installed.filter((id): id is string => typeof id === "string") : undefined;
+  return errors.length ? { errors } : { value: { queries, queryOrder, groups, groupOrder, enabled, installedPresets }, errors };
 }
 
 const prefixTypes: PrefixType[] = ["none", "emoji", "icon", "image", "url", "svg"];
@@ -193,11 +197,13 @@ function parseGroupOrder(value: unknown, groups: Record<string, RuleGroup> | und
 }
 
 export function applySettingsImport(value: ParsedSettingsImport, current: DynamicHighlightsSettings, mode: "merge" | "replace"): DynamicHighlightsSettings {
+  // A replaced/deleted preset must not come back after the next reload.
+  const installedPresets = [...new Set([...(current.staticHighlighter.installedPresets ?? []), ...(value.installedPresets ?? [])])];
   if (mode === "replace") {
     const normalized = normalizeSettings({
       enabled: value.enabled ?? current.enabled,
       selectionHighlighter: current.selectionHighlighter,
-      staticHighlighter: { queries: value.queries, queryOrder: value.queryOrder, groups: value.groups ?? {}, groupOrder: value.groupOrder ?? [] },
+      staticHighlighter: { queries: value.queries, queryOrder: value.queryOrder, groups: value.groups ?? {}, groupOrder: value.groupOrder ?? [], installedPresets },
     });
     return normalized;
   }
@@ -211,7 +217,7 @@ export function applySettingsImport(value: ParsedSettingsImport, current: Dynami
   return normalizeSettings({
     ...current,
     enabled: value.enabled ?? current.enabled,
-    staticHighlighter: { ...current.staticHighlighter, queries, queryOrder, groups, groupOrder },
+    staticHighlighter: { ...current.staticHighlighter, queries, queryOrder, groups, groupOrder, installedPresets },
   });
 }
 

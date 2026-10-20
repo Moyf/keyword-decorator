@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 Added
 
+- **Emoji shortcodes**: Add a default group with 1,914 offline Unicode aliases, including `:happy:`, using one matcher; preserve existing rule priority and preset edits across reload and import/export, and support hiding emoji shortcode text with cursor recovery.
+
 - **Rule workbench**: Add automatic saving, a master switch, per-rule toggles, drag and keyboard reordering, duplication, filtering, and deletion undo.
 - **Bulk rules**: Preview and add independent rules from keyword lines, tab-separated spreadsheet columns, or JSON; optionally inherit the selected rule's appearance.
 - **Image markers**: Paste SVG code, pick vault images with thumbnail search, configure image dimensions, and optionally hide matched text while preserving editable source.
@@ -28,6 +30,8 @@ All notable changes to this project will be documented in this file.
 <summary>中文说明（点击展开）</summary>
 
 ### 🚀 新增
+
+- **Emoji 短码**：新增含 1,914 个离线 Unicode 别名的默认分组，支持 `:happy:`，整套字典共用一条匹配规则；保留现有优先级、预设编辑及导入导出状态，支持隐藏短码文字并在光标移入时恢复原文。
 
 - **规则工作台**：支持自动保存、总开关、单规则开关、拖动及键盘排序、复制、筛选和删除撤销。
 - **批量规则**：通过关键词行、表格制表符分列或 JSON 预览并添加独立规则，可选继承所选规则的外观。

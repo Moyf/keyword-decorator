@@ -145,13 +145,15 @@ const staticHighlighter = ViewPlugin.fromClass(
         const prefixValue = rule.prefixValue ?? rule.prefixValues?.[rule.prefixType || "none"] ?? "";
         const hasImageMarker = (rule.prefixType === "image" || rule.prefixType === "url") && !!runtimeApp && !!resolveImage(runtimeApp, prefixValue) && !isImageSourceFailed(runtimeApp, prefixValue);
         const hasSvgMarker = sameLine && rule.prefixType === "svg" && isSvgMarkupValid(view.dom.ownerDocument, prefixValue);
+        const hasEmojiMarker = rule.prefixType === "emoji" && !!(prefixValue || "✨").trim();
         const selectionOverlaps = rule.hideText && state.selection.ranges.some(selection =>
           selection.empty ? selection.head >= from && selection.head <= to : selection.from < to && selection.to > from
         );
-        if (rule.hideText && sameLine && (hasImageMarker || hasSvgMarker) && !selectionOverlaps) classes.push("keyword-decorator-hide-text");
+        const hideText = rule.hideText && sameLine && (hasImageMarker || hasSvgMarker || hasEmojiMarker) && !selectionOverlaps;
+        if (hideText) classes.push("keyword-decorator-hide-text");
         if (!rule.styleWholeLine) {
           tokenDecos.push(Decoration.mark({ class: classes.join(" "), attributes: { "data-contents": state.sliceDoc(from, to) } }).range(from, to));
-        } else if (rule.hideText) {
+        } else if (hideText) {
           tokenDecos.push(Decoration.mark({ class: "keyword-decorator-hide-text", attributes: { "data-contents": state.sliceDoc(from, to) } }).range(from, to));
         }
         if (rule.prefixType && rule.prefixType !== "none") {

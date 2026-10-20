@@ -1,6 +1,8 @@
+import { lookupEmojiShortcode } from "../emoji/shortcodes";
+
 export interface MatchRule {
   query: string;
-  queryMode?: "keywords" | "single" | "multiple" | "regex";
+  queryMode?: "keywords" | "single" | "multiple" | "regex" | "emoji-shortcodes";
   regex?: boolean;
   enabled?: boolean;
   hideText?: boolean;
@@ -11,7 +13,7 @@ export interface CompiledRule {
   ruleId: string;
   priority: number;
   rule: MatchRule;
-  mode: "keywords" | "single" | "multiple" | "regex";
+  mode: "keywords" | "single" | "multiple" | "regex" | "emoji-shortcodes";
   terms: string[];
   expression?: RegExp;
 }
@@ -32,11 +34,13 @@ export function compileRules(queries: Record<string, MatchRule>, queryOrder: str
   const compiled: CompiledRule[] = [];
   queryOrder.forEach((ruleId, priority) => {
     const rule = queries[ruleId];
-    if (!rule || rule.enabled === false || !rule.query?.trim()) return;
+    if (!rule || rule.enabled === false || (!rule.query?.trim() && rule.queryMode !== "emoji-shortcodes")) return;
     const mode = rule.queryMode || (rule.regex ? "regex" : "single");
     const entry: CompiledRule = { ruleId, priority, rule, mode, terms: [] };
     if (mode === "multiple" || mode === "keywords") {
       entry.terms = rule.query.split(mode === "multiple" ? /[\n,]/g : /\r?\n/g).map(term => term.trim()).filter(Boolean).slice(0, 1000);
+    } else if (mode === "emoji-shortcodes") {
+      entry.expression = /:[a-z0-9_+-]+:/g;
     } else if (mode === "regex") {
       // Limit pattern size; JavaScript RegExp has no safe in-thread timeout for catastrophic backtracking.
       if (rule.query.length > MAX_REGEX_PATTERN_LENGTH) return;
@@ -59,7 +63,7 @@ export function findMatches(text: string, rules: CompiledRule[]): TextMatch[] {
   const candidates: TextMatch[] = [];
   for (const item of rules) {
     if (candidates.length >= MAX_CANDIDATES_PER_TEXT) break;
-    if (item.mode === "regex") {
+    if (item.mode === "regex" || item.mode === "emoji-shortcodes") {
       const expression = item.expression;
       if (!expression) continue;
       expression.lastIndex = 0;
@@ -67,7 +71,14 @@ export function findMatches(text: string, rules: CompiledRule[]): TextMatch[] {
       let matchesForRule = 0;
       while ((match = expression.exec(text)) && candidates.length < MAX_CANDIDATES_PER_TEXT && matchesForRule < MAX_MATCHES_PER_RULE) {
         if (match[0].length) {
-          candidates.push({ from: match.index, to: match.index + match[0].length, ruleId: item.ruleId, priority: item.priority, rule: item.rule });
+          const emoji = item.mode === "emoji-shortcodes" ? lookupEmojiShortcode(match[0]) : undefined;
+          if (item.mode === "emoji-shortcodes" && !emoji) {
+            // The closing colon may open a known shortcode immediately after an unknown one.
+            expression.lastIndex--;
+            continue;
+          }
+          const rule = emoji ? { ...item.rule, prefixType: "emoji", prefixValue: emoji } : item.rule;
+          candidates.push({ from: match.index, to: match.index + match[0].length, ruleId: item.ruleId, priority: item.priority, rule });
           matchesForRule++;
         } else if (expression.lastIndex === match.index) {
           expression.lastIndex++;
