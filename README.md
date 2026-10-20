@@ -1,104 +1,108 @@
-## Keyword Decorator
+# Keyword Decorator
 
-An Obsidian plugin that decorates keyword matches in the editor.
+Give keywords a visual marker in Obsidian's editor and reading view. Rules can add text styles, emoji, Lucide icons, vault images, or pasted SVG artwork without changing your notes.
 
-This plugin currently only works in the Source or Live Preview editor modes. For now it will not affect Reading mode or the Legacy Editor.
+## Use
 
-### Selection Highlights
+Open **Settings → Keyword Decorator** and create a rule. Choose **Keywords (one per line)** or **Regular expression**. One line matches one keyword; several lines share the same appearance. Changes save automatically; the preview updates as you type.
 
-If there is no active selection, all occurences of the word underneath the current cursor position will be highlighted
-- Word matching is case insensitive
-- The word currently under the cursor will be marked with `.cm-current-word`
-- Occurences of the current word found elsewhere in the document will be marked with `cm-matched-word`
-- All occurences will recieve the `data-contents` data attribute which will hold the current word value
+- Use the master switch to pause all decorations and each rule's switch to pause one rule.
+- Drag a rule by its grip to change priority. You can also focus its grip and press `Alt + ↑ / ↓`, or use the editor's arrow buttons. Earlier rules win overlapping matches.
+- Duplicate a rule to reuse its appearance. Deleting a rule offers a short undo action.
+- Search the rule list by name or keyword. The list and editor use equal columns and scroll independently. Collapse the editor to browse only rules until you select one again. Below 360 CSS px of content width, selecting a rule opens its editor.
 
-If there is an active selection, all occurences of the text inside the selection will be highlighted.
-- String matching is case insensitive
-- The currently selected string will be marked by default with `.cm-selection`
-- Occurences of the currently selected string found elsewhere in the document will be marked with `cm-matched-string`
-- All matches will recieve the `data-contents` data attribute which will hold the selected string value
+## Groups and appearance
 
-### Persistent Highlights
+Create groups with the folder-plus button. Fold a group, toggle all its rules together, drag rules between groups, or drag a group to move its rule block. The rule editor also has a Group selector. Ungrouped rules come first, followed by groups in list order; earlier rules win overlapping matches.
 
-Persistent highlights are created by defining a search query and associating a CSS class name and color. Once defined, any string that matches the search query will be marked with the associated CSS class and will receive background color that matches the chosen color.
+Click a group name to configure shared appearance. Unset rule fields inherit the group; explicit values, including disabled toggles or cleared colors, override it. Use ↶ beside a field to restore inheritance, or reset all appearance fields from the rule editor. Disabling a group preserves each rule's own switch. Full exports preserve groups, group order and appearance.
 
-Search queries can be written using regular expressions as long as you toggle the regex option for the query.
+Lucide icons offer keyword suggestions with a preview and name. Icons inherit text color by default; this can be turned off. Each marker type remembers its own value. Background color can optionally include the prefix marker.
 
-You can define as many unique highlighters as you'd like as long as the class names are unique. Performance may be impacted when creating a large number of complex regex queries so be mindful of your regex complexity.
+Advanced → **Apply style to the whole line** is off by default. Enable it to style the logical line containing a match, including text around the keyword. Soft wrapping does not split a logical line. If multiple whole-line rules match one line, the earliest rule supplies its appearance. Regular-expression `^` and `$` match each logical line.
 
-#### Examples
+Use `&` in Custom CSS to target this rule's matches, or the line when whole-line styling is enabled:
 
-You can import the examples with the `Import` Button at the top right of the plugin's settings.
-
-##### Visual Linting
-Highlights double spaces, empty list markers, double list markers, preceding spaces, and trailing spaces. 
-
-```json
-{
-  "Mini-Linting": {
-    "class": "Mini-Linting",
-    "color": "#A70F0F38",
-    "regex": true,
-    "query": " {2,}(?!\\|| |$)|- - |^\\s*- \\n|^ +(?![0-9-`])",
-    "mark": [
-      "match"
-    ],
-    "css": ".cm-line .Mini-Linting {\n  background: none;\n}\n\n.cm-line:not(.cm-active) .Mini-Linting {\n  outline: 1px solid var(--text-error);\n}"
-  },
+```css
+& {
+  border-bottom: 2px dashed currentColor;
+  border-radius: 4px;
+  padding: 0 4px;
 }
 ```
 
-##### Strike Out Filler Words to avoid in Writing
-```json
-{
-  "Filler-Words": {
-    "class": "Filler-Words",
-    "color": "#2D801838",
-    "regex": true,
-    "query": "\\b([Aa] bit|[Aa]bsolutely|[Aa]ctually|[Aa]nd all that|[Aa]nd so forth|[Aa]nyway|[Bb]asically|[Cc]ertainly|[Cc]learly|[Cc]ompletely|[Dd]efinitely|[Ee]ffectively|[Ee]ntirely|[Ee]ssentially|[Ee]vidently|[Ee]xtremely|[Ff]airly|[Ff]rankly|[Ff]requently|[Gg]enerally|[Hh]opefully|[Kk]ind of|[Ll]argely|[Ll]iterally|[Mm]ore or less|[Mm]ostly|[Oo]ccasionally|[Oo]ften|[Oo]verall|[Pp]articularly|[Pp]erhaps|[Pp]ossibly|[Pp]ractically|[Pp]recisely|[Pp]resumably|[Pp]retty|[Pp]rimarily|[Pp]robably|[Pp]urely|[Qq]uite|[Rr]arely|[Rr]ather|[Rr]eally|[Rr]elatively|[Ss]eriously|[Ss]ignificantly|[Ss]imply|[Ss]lightly|[Ss]omehow|[Ss]ort of|[Ss]pecifically|[Ss]trongly|[Ss]upposedly|[Ss]urely|[Tt]he fact that|[Tt]otally|[Tt]ruly|[Tt]ypically|[Uu]ltimately|[Uu]sually|[Vv]ery|[Vv]irtually|[Ww]idely)\\b",
-    "mark": [
-      "match"
-    ],
-    "css": ".cm-line .Filler-Words{\n\ttext-decoration: line-through;\n\tbackground: none;\n\tcolor: var(--text-muted);\n}\n\n/* where to disable */\n.HyperMD-quote.cm-line .Filler-Words,\n.pdf-annotations .cm-line .Filler-Words {\n\ttext-decoration: none;\n\tcolor: unset;\n}"
-  }
-}
+## Images and SVG
+
+Choose **Vault image** to search image names and full paths, with thumbnails. The picker saves the full vault path so files with identical names in different folders remain distinct. You can also enter a vault path or wikilink manually.
+
+Choose **SVG code** and paste a complete `<svg>…</svg>` element. Active content and external references are removed before display. Configure width and height in pixels; images keep their proportions inside this box.
+
+Choose **Image URL** to paste a direct HTTP or HTTPS image link, including URLs with query parameters. Network images share the same size and hide-text controls as vault images. The preview loads the image directly from its host, without sending a referrer. Invalid links and failed loads leave the original text readable.
+
+**Hide matched text** is off by default. For image and SVG markers, it leaves only the marker visible. Move the editor cursor into a match to reveal and edit its original text. The underlying Markdown is preserved.
+
+The plugin runs locally. An image URL beginning with `https://` or `http://` connects to that image's host when displayed; using vault images or pasted SVG avoids these network requests. No account, telemetry, or paid service is required.
+
+## Bulk add
+
+Use the list's **Bulk add** button. Each line creates a separate rule:
+
+```text
+Obsidian
+Review
+Important
 ```
 
-##### Highlight Custom Styles in Pandoc Exports (`:::`)
+Paste tab-separated columns from a spreadsheet to give each rule its own name, keyword, and optional vault image:
 
-```json
-{
-  "Pandoc-Syntax": {
-    "class": "Pandoc-Syntax",
-    "color": "#77787C4A",
-    "regex": true,
-    "query": "::: \\{.*?\\}[\\s\\S]*?:::",
-    "mark": [
-      "match",
-      "group"
-    ],
-    "css": ""
-  }
-}
+```tsv
+Name	Keyword	Image path (optional)
 ```
 
-### Settings
+The first row is data too; omit column headings. A JSON rule array or previously exported rule package is also accepted. Preview the rule count and fix any errors before adding. You can optionally inherit the selected rule's appearance.
 
-#### Delay
+Several lines in a **Keywords** rule share one appearance. **Bulk add** creates independent rules that you can edit individually. Commas in the new Keywords mode are literal text; legacy comma-separated rules keep their original matching behavior and are displayed as separate lines when opened for editing.
 
-The delay before highlighting is applied after moving the cursor
+## Import and export
 
-#### Ignored Words
+Export copies or downloads a JSON package with rules, priority, and master-switch state. Older exports containing a map of rule IDs are also accepted. Import validates pasted JSON or a selected file automatically and offers a choice of merge or replace. The empty-replacement confirmation appears only when needed. Summaries and footer actions stay visible while editing.
 
-A comma delimited list of words that will not be highlighted
+## Performance
 
-The default list can be found here: https://gist.github.com/sebleier/554280
+Editor matching is restricted to visible content. Matchers are compiled when rules change; saves are debounced and serialized. Image resolution is cached, and disabled rules skip matching. Avoid complex regular expressions: JavaScript cannot safely interrupt a pathological expression on the UI thread. See [DEVELOPMENT.md](DEVELOPMENT.md) for validation details and development commands.
 
-### Limitations
+## Development
 
-- There is currently no support for dynamic highlights in reading/preview mode.
-- Only strings with 3 or more characters will be highlighted in selection highlight mode
+```sh
+npm install
+```
 
-### Acknowledgments
-Thanks to @chrisgrieser aka @pseudometa for the plugin idea and feedback. 
-Thanks to @chetachiezikeuzor for the plugin settings UI code which was inspired by https://github.com/chetachiezikeuzor/highlightr-Plugin/
+Copy `.env.example` to `.env` and set `VAULT_PATH` to an existing Obsidian vault containing `.obsidian`. The copy script reads the process environment first, then `.env` files in the repository and parent directories. Relative vault paths resolve from the matching `.env` directory.
+
+```sh
+npm run test
+npm run lint
+npm run build:local
+```
+
+Build outputs are in `dist/`. Local builds copy only plugin assets, preserving the vault's existing `data.json`. Reload the plugin, then open its settings. Use `npm run build:local:set` to build and open settings when Hot Reload is active.
+
+## 中文说明
+
+在编辑器和阅读视图中，为关键词添加颜色、文字样式、Emoji、Lucide 图标、库内图片或 SVG。插件只改变显示，不改动笔记原文。
+
+设置页支持自动保存、总开关、单规则开关、拖动排序、复制、筛选和删除撤销。左右列宽为 1:1，列表与编辑区独立滚动；可随时收起设置，直到再次点击规则进入编辑。面板小于 360 CSS px 时使用单列导航。断点按缩放后的实际面板宽度判断。
+
+分组支持折叠、整组启用／禁用、组间拖动规则与整组排序，也可在规则编辑区选择所属分组。点击分组名称配置共享样式；规则未设置的字段继承分组，明确关闭或清空的字段优先使用自身配置，↶ 可恢复继承。未分组规则优先，其后按分组及组内顺序匹配。
+
+Lucide 支持关键字筛选、图标预览与名称，默认继承文字颜色。各装饰类型分别记忆内容；背景可选包含前缀。Advanced 的「把样式附加到整行」默认关闭，开启后作用于关键字所在的整个逻辑行；自动换行仍算同一行。正则的 `^`／`$` 按逻辑行匹配。自定义 CSS 可使用上方示例中的 `&` 定位当前规则。
+
+图片支持按名称或路径搜索并显示缩略图，选择后保存完整库内路径。「网络图片」可直接粘贴 HTTP／HTTPS 图片链接，保留链接中的查询参数；SVG 可直接粘贴完整代码。三者均可设置显示尺寸；「隐藏匹配文字」默认关闭，开启后只保留图片，编辑时光标进入匹配范围会恢复原文显示。
+
+「批量添加」支持每行一个关键词、从表格粘贴名称／关键词／图片路径三列，或粘贴 JSON。批量添加生成独立规则；匹配方式现在只有「关键词（每行一个）」和「正则表达式」。关键词填写一行或多行均可，逗号按文字匹配；旧规则的匹配含义会保留。导入内容会自动校验，可选择合并或替换，仅在需要清空时显示确认；导出会保留规则顺序和开关状态。
+
+使用库内图片和 SVG 时完全本地运行；填写远程图片 URL 时会连接对应图片网站。复杂正则仍可能影响界面响应，请优先使用简单表达式或普通关键词。
+
+## License
+
+MIT. Based on the original work by NothingIsLost.

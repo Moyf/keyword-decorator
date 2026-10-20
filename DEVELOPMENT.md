@@ -1,81 +1,62 @@
-# Keyword Decorator - Development Requirements
+# Development
 
-## 1. Project Scope
+The plugin decorates matches in CodeMirror 6 and Reading view. It never rewrites Markdown to implement a decoration. The development build requires Obsidian 1.8.7 or later; existing release version numbers and historical compatibility mappings are preserved until a release is requested.
 
-- Baseline: created from `highlight-decorator` implementation pattern.
-- Plugin ID: `keyword-decorator`.
-- Initial target: Obsidian Editor (CodeMirror 6) only.
-- Reading view support is out of scope for phase 1.
+## Local setup
 
-## 2. Core Requirements
+1. Run `npm install`.
+2. Copy `.env.example` to `.env` and set `VAULT_PATH` to an existing vault. Process environment variables take precedence; otherwise the copy script searches this repository and parent directories for `.env`.
+3. Run `npm run test` and `npm run lint`.
+4. Run `npm run build:local`, which type-checks, bundles into `dist/`, and copies the plugin assets to the configured vault. Existing `data.json` is preserved.
+5. Allow Hot Reload to reload the plugin, or run `obsidian.com plugin:reload id=keyword-decorator`. Do not reload the entire application.
+6. Open the plugin settings. `npm run build:local:set` combines the build/copy step with the settings opener when Hot Reload is active.
 
-### 2.1 Keyword Rules
+The settings opener retries briefly if a plugin reload and CLI request overlap. `NO.hotreload`, when present in an existing vault, is preserved.
 
-- Support multiple keyword rules.
-- Each rule supports plain text or RegExp matching.
-- Each rule can configure:
-  - text color
-  - background color
-  - font weight
-  - italic
-  - underline
-  - custom CSS class
-- Rule-level enable/disable switch.
+## Code map
 
-### 2.2 Rule Groups
+| Module | Responsibility |
+| --- | --- |
+| `src/main.ts` | Plugin lifecycle, debounced settings application, serialized persistence, per-document custom styles, Reading view integration |
+| `src/highlighters/matching.ts` | Compile rule queries and resolve overlapping matches by configured priority |
+| `src/highlighters/static.ts` | CodeMirror viewport decorations and image widgets; map stale ranges while recalculation is pending |
+| `src/markers.ts` | Shared image resolution, SVG sanitation, marker construction and caches |
+| `src/settings/settings.ts` | Data defaults, legacy configuration normalization and order repair |
+| `src/settings/ui.ts` | Master toggle, rule navigation, reordering, duplication and undo |
+| `src/settings/rule-editor.ts` | Editable rule fields and immediate preview |
+| `src/settings/groups.ts`, `group-order.ts` | Effective inherited appearance, group enable gates and grouped priority mutations |
+| `src/settings/appearance-editor.ts`, `icon-picker.ts` | Shared rule/group appearance fields and host icon search |
+| `src/settings/image-picker.ts` | Vault image completion and thumbnail picker |
+| `src/settings/bulk.ts` | Bulk input validation, optional appearance inheritance and safe appending |
+| `src/settings/import.ts`, `export.ts` | Backward-compatible JSON import and ordered export |
 
-- Support grouping rules (e.g. `General`, `Writing`, `Review`).
-- Group-level enable/disable switch.
-- Group-level defaults can be overridden by rule-level settings.
-- Stable priority when multiple rules match the same range.
+## Data and persistence
 
-### 2.3 Decorations
+Rules remain a map under `staticHighlighter.queries`, with priority in `queryOrder`. Missing order entries are repaired; unknown IDs and duplicates are removed from the order. Existing CSS and legacy fields survive normalization. Invalid regular-expression text remains editable and can be saved; importing an invalid rule reports an error before modifying current data.
 
-- Apply decorations through CodeMirror 6 `ViewPlugin` + `Decoration`.
-- Render style changes without mutating note content.
-- Optional prefix marker before match:
-  - Emoji
-  - icon name mapping
-  - inline SVG (sanitized)
-  - vault image path (with fallback)
+New plain-text rules use `queryMode: "keywords"`, splitting only at line breaks. The UI exposes this mode and `regex`. Legacy `single` and comma-separated `multiple` queries remain readable without changing their meaning. Opening a legacy multiple rule displays its terms on separate lines; only editing its keywords converts it to the new mode.
 
-### 2.4 Settings UI
+The master `enabled` flag defaults to true. A rule defaults to enabled unless `enabled` is explicitly false. `hideText` defaults to false. Image dimensions default to 24 × 24 pixels and accept integers from 1 to 512.
 
-- Provide full settings tab for:
-  - create/edit/delete groups
-  - create/edit/delete rules
-  - reorder rules
-  - toggle group/rule enabled state
-- Live preview for rule updates.
-- Import/export all rules as JSON.
+An export can contain the legacy rule map or `{ enabled, staticHighlighter: { queries, queryOrder, groups, groupOrder } }`. Bulk import generates new rule and group IDs. Regular import can merge by ID or replace all rules after validation.
 
-## 3. Performance and Safety
+Group appearance supplies only undefined rule fields: `false`, `null` and empty strings are explicit overrides. Effective enable state combines the group and rule switches without changing either saved flag. Unset defaults are applied at render time to preserve inheritance. Marker `prefixValue` is the active value; `prefixValues` remembers each type for UI switching. Whole-line style is off by default and participates in inheritance. In the editor it uses a line decoration; Reading view styles logical-line text fragments while preserving inline elements. The first matching whole-line rule wins. Regexes use `gm`; visible editor ranges are expanded to complete logical lines before matching and then filtered back to visible intersections.
 
-- Do not full-scan the whole document on every keystroke.
-- Prefer viewport-based updates and incremental recalculation.
-- Add guardrails for invalid RegExp.
-- Sanitize SVG input and safely handle broken image paths.
-- Ensure plugin does not break on mobile; degrade gracefully if needed.
+## Performance boundaries
 
-## 4. Milestones
+- Matchers are compiled when settings change, rather than once per text node or keystroke.
+- CodeMirror limits matching to visible ranges. Document changes map existing decoration ranges immediately and debounce recomputation.
+- Settings text input updates its preview immediately. Runtime updates and disk writes are debounced; writes are serialized so an earlier write cannot finish after a newer one.
+- Image resolution uses Obsidian's metadata cache and cached resource URLs. Vault image changes invalidate the cache.
+- Overlap selection is deterministic: earlier rules in `queryOrder` win, including when a later rule begins earlier in the text.
+- Regular-expression patterns are limited to 16,384 characters. Each rule produces at most 1,000 candidate matches per processed segment, and a segment has a 5,000-candidate cap. Multiple-keyword rules use at most 1,000 terms. These caps bound decoration volume, and do not impose a hard execution deadline on JavaScript regular expressions.
 
-- M1: Data model + persistence + migration.
-- M2: Matching engine + conflict resolution.
-- M3: Basic style decorations + group toggles.
-- M4: Prefix markers (emoji/icon/svg/image).
-- M5: Settings UX + JSON import/export.
-- M6: Performance validation + mobile compatibility checks.
+An intentionally pathological regular expression can still block the UI thread. Avoid nested or ambiguous unbounded repetitions. A future worker-based matcher would be needed to enforce a reliable timeout. Matching across disjoint viewport ranges or separate Markdown blocks is not guaranteed; hiding multi-line editor matches is deliberately avoided so line structure remains editable.
 
-## 5. Acceptance Criteria
+## Validation
 
-- 50 rules on a 500KB markdown file remains responsive.
-- Conflict priority is deterministic and testable.
-- Group and rule toggles update decorations correctly.
-- JSON export/import round-trip keeps rule data consistent.
-- Invalid rule data does not crash editor rendering.
-- Prefix marker sources render correctly or fall back safely.
+`npm run test` bundles TypeScript tests into temporary CommonJS files and runs Node's test runner. The Obsidian mock supplies only host APIs needed to import data modules; it does not implement matching, normalization or persistence behavior.
 
-## 6. Notes
+For UI and runtime changes, additionally verify in Obsidian: automatic saving, rapid consecutive edits, duplicate/delete/undo, keyboard and pointer reordering, master and rule toggles, narrow-screen navigation, local image completion, SVG sanitation and dimensions, hidden text recovery, and Reading view cleanup after plugin reload. Run tests that replace settings in a separate test vault. Never run overlapping settings-mutation scripts in a personal vault: a timed-out CLI request can continue running inside Obsidian. Keep a durable configuration backup before any write-based host test, wait for the previous script to finish, and verify the final disk contents.
 
-- Keep architecture compatible with future reading-view extension.
-- Keep style generation centralized to avoid duplicated CSS logic.
+The local QA backup and temporary scripts live in ignored `.local-qa/`; they are not release assets. Actual verification results are recorded separately after checks finish.

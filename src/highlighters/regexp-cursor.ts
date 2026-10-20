@@ -1,6 +1,6 @@
 // from https://github.com/codemirror/search/blob/main/src/regexp.ts
 
-import {Text, TextIterator} from "@codemirror/text"
+import type { Text, TextIterator } from "@codemirror/state";
 import execWithIndices from 'regexp-match-indices';
 
 const empty = {from: -1, to: -1, match: /.*/.exec("")!}
@@ -16,6 +16,7 @@ export class RegExpCursor implements Iterator<{from: number, to: number, match: 
   private curLine = ""
   private curLineStart!: number
   private matchPos!: number
+  private multilineCursor?: MultilineRegExpCursor
 
   /// Set to `true` when the cursor has reached the end of the search
   /// range.
@@ -30,7 +31,10 @@ export class RegExpCursor implements Iterator<{from: number, to: number, match: 
   /// document. `query` should be the raw pattern (as you'd pass it to
   /// `new RegExp`).
   constructor(text: Text, query: string, options?: {ignoreCase?: boolean}, from: number = 0, private to: number = text.length) {
-    if (/\\[sWDnr]|\n|\r|\[\^/.test(query)) return new MultilineRegExpCursor(text, query, options, from, to) as any
+    if (/\\[sWDnr]|\n|\r|\[\^/.test(query)) {
+      this.multilineCursor = new MultilineRegExpCursor(text, query, options, from, to);
+      return;
+    }
     this.re = new RegExp(query, baseFlags + (options?.ignoreCase ? "i" : ""))
     this.iter = text.iter()
     let startLine = text.lineAt(from)
@@ -59,6 +63,12 @@ export class RegExpCursor implements Iterator<{from: number, to: number, match: 
 
   /// Move to the next match, if there is one.
   next() {
+    if (this.multilineCursor) {
+      this.multilineCursor.next();
+      this.done = this.multilineCursor.done;
+      this.value = this.multilineCursor.value;
+      return this;
+    }
     for (let off = this.matchPos - this.curLineStart;;) {
       this.re.lastIndex = off
       let match = this.matchPos <= this.to && execWithIndices(this.re, this.curLine)
