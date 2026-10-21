@@ -11,6 +11,8 @@ import { moveRuleGroup, moveRuleToGroup } from "./group-order";
 import { renderEditor } from "./rule-editor";
 import { renderAppearance } from "./appearance-editor";
 import { iconButton, renderPreview, ruleLabel } from "./ui-helpers";
+import { getBuiltinEmojiGroup, setBuiltinEmojiEnabled } from "./presets";
+import { renderBuiltinEmojiEditor } from "./builtin-editor";
 
 export class SettingTab extends PluginSettingTab {
   icon = "highlighter";
@@ -79,6 +81,10 @@ export class SettingTab extends PluginSettingTab {
     const config = this.plugin.settings.staticHighlighter;
     if (this.selectedGroupId && !config.groups?.[this.selectedGroupId]) this.selectedGroupId = null;
     if (!this.selectedGroupId && (!this.selectedRuleId || !config.queries[this.selectedRuleId])) this.selectedRuleId = config.queryOrder[0] || null;
+    const selected = this.selectedRuleId && config.queries[this.selectedRuleId];
+    if (selected && getBuiltinEmojiGroup(config, selected.groupId)?.ruleId === this.selectedRuleId) {
+      this.selectedGroupId = selected.groupId!; this.selectedRuleId = null;
+    }
     this.renderList(); this.renderEditor(); this.syncVisibility();
   }
   changed() {
@@ -93,41 +99,53 @@ export class SettingTab extends PluginSettingTab {
   }
   private collapseEditor() { this.editorCollapsed = true; this.editing = false; this.syncVisibility(); }
   private selectRule(id: string) {
+    const config = this.plugin.settings.staticHighlighter, rule = config.queries[id];
+    if (rule && getBuiltinEmojiGroup(config, rule.groupId)?.ruleId === id) { this.selectGroup(rule.groupId!); return; }
     this.selectedRuleId = id; this.selectedGroupId = null; this.editorCollapsed = false; this.editing = true;
-    this.renderList(); this.renderEditor(); this.syncVisibility();
+    this.renderList(); this.renderEditor(); this.editor.scrollTop = 0; this.syncVisibility();
   }
   private selectGroup(id: string) {
     this.selectedGroupId = id; this.selectedRuleId = null; this.editorCollapsed = false; this.editing = true;
-    this.renderList(); this.renderEditor(); this.syncVisibility();
+    this.renderList(); this.renderEditor(); this.editor.scrollTop = 0; this.syncVisibility();
   }
   private renderList() {
     this.reorderCleanup?.(); this.list.empty(); this.rows.clear(); this.headers.clear();
     const config = this.plugin.settings.staticHighlighter, groups = config.groups || {};
-    this.count.setText(String(config.queryOrder.length));
+    this.count.setText(String(config.queryOrder.filter(id => config.queries[id]?.queryMode !== "emoji-shortcodes" || !getBuiltinEmojiGroup(config, config.queries[id]?.groupId)).length));
     const filter = this.filter.toLowerCase();
     const visible = (id: string, group?: RuleGroup) => !filter || `${config.queries[id]?.name || ""} ${config.queries[id]?.query || ""} ${group?.name || ""}`.toLowerCase().includes(filter);
     const drawGroup = (groupId?: string) => {
       const group = groupId ? groups[groupId] : undefined;
+      const builtin = getBuiltinEmojiGroup(config, groupId);
       const ids = config.queryOrder.filter(id => config.queries[id] && (config.queries[id].groupId || undefined) === groupId);
       const matching = ids.filter(id => visible(id, group));
       if (filter && !matching.length && !group?.name.toLowerCase().includes(filter)) return;
       const section = this.list.createEl("section", { cls: "kd-group", attr: { "data-group-id": groupId || "" } });
+      section.toggleClass("kd-builtin-group", !!builtin);
       if (group || Object.keys(groups).length) {
         const header = section.createDiv("kd-group-header");
         if (group && groupId) {
-          header.toggleClass("is-selected", this.selectedGroupId === groupId); header.toggleClass("is-disabled", group.enabled === false);
+          header.toggleClass("is-selected", this.selectedGroupId === groupId); header.toggleClass("is-disabled", group.enabled === false || builtin?.rule.enabled === false);
           const grip = header.createEl("button", { cls: "kd-group-grip clickable-icon", attr: { "aria-label": localize("Drag group", "拖动分组") } }); setIcon(grip, "grip-vertical");
           grip.addEventListener("keydown", event => { if (event.altKey && ["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); this.moveGroup(groupId, event.key === "ArrowUp" ? -1 : 1); this.headers.get(groupId)?.querySelector<HTMLButtonElement>(".kd-group-grip")?.focus(); } });
-          const fold = header.createEl("button", { cls: "kd-group-fold clickable-icon", attr: { "aria-label": localize("Expand or collapse group", "展开或收起分组"), "aria-expanded": String(!group.collapsed || !!filter) } });
-          setIcon(fold, group.collapsed && !filter ? "chevron-right" : "chevron-down");
-          fold.addEventListener("click", () => { group.collapsed = !group.collapsed; this.changed(); this.renderList(); });
+          if (builtin) setIcon(header.createSpan({ cls: "kd-builtin-icon", attr: { "aria-hidden": "true" } }), "smile");
+          else {
+            const fold = header.createEl("button", { cls: "kd-group-fold clickable-icon", attr: { "aria-label": localize("Expand or collapse group", "展开或收起分组"), "aria-expanded": String(!group.collapsed || !!filter) } });
+            setIcon(fold, group.collapsed && !filter ? "chevron-right" : "chevron-down");
+            fold.addEventListener("click", () => { group.collapsed = !group.collapsed; this.changed(); this.renderList(); });
+          }
           const title = header.createEl("button", { cls: "kd-group-title", text: group.name, attr: { "aria-label": localize(`Edit group: ${group.name}`, `编辑分组：${group.name}`) } });
           title.addEventListener("click", () => this.selectGroup(groupId));
-          header.createSpan({ cls: "kd-count", text: String(ids.length) });
-          new ToggleComponent(header).setValue(group.enabled !== false).onChange(value => { group.enabled = value; this.changed(); this.renderList(); }).toggleEl.setAttribute("aria-label", `${t("enabled")}: ${group.name}`);
+          header.createSpan({ cls: "kd-count", text: builtin ? localize("Built-in", "内置") : String(ids.length) });
+          new ToggleComponent(header).setValue(group.enabled !== false && (!builtin || builtin.rule.enabled !== false)).onChange(value => {
+            if (builtin) setBuiltinEmojiEnabled(config, groupId, value); else group.enabled = value;
+            this.changed(); this.renderList();
+            if (builtin && this.selectedGroupId === groupId) this.renderEditor();
+          }).toggleEl.setAttribute("aria-label", `${t("enabled")}: ${group.name}`);
           this.headers.set(groupId, header);
         } else header.createSpan({ cls: "kd-group-ungrouped", text: localize("Ungrouped", "未分组") });
       }
+      if (builtin) return;
       const items = section.createDiv({ cls: "kd-group-items", attr: { "data-group-id": groupId || "" } });
       const collapsed = !!group?.collapsed && !filter;
       items.toggleClass("is-collapsed", collapsed);
@@ -146,7 +164,10 @@ export class SettingTab extends PluginSettingTab {
     grip.addEventListener("keydown", event => { if (event.altKey && ["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); this.move(id, event.key === "ArrowUp" ? -1 : 1); this.rows.get(id)?.querySelector<HTMLButtonElement>(".kd-grip")?.focus(); } });
     const select = row.createEl("button", { cls: "kd-select" }); select.createDiv("kd-rule-name"); select.createDiv("kd-rule-sample");
     select.addEventListener("click", () => this.selectRule(id));
-    new ToggleComponent(row).setValue(rule.enabled !== false).onChange(value => { rule.enabled = value; this.changed(); this.updateRow(id); }).toggleEl.setAttribute("aria-label", `${t("enabled")}: ${ruleLabel(rule)}`);
+    new ToggleComponent(row).setValue(rule.enabled !== false).onChange(value => {
+      rule.enabled = value; this.changed(); this.updateRow(id);
+      if (rule.queryMode === "emoji-shortcodes" && this.selectedRuleId === id) this.renderEditor();
+    }).toggleEl.setAttribute("aria-label", `${t("enabled")}: ${ruleLabel(rule)}`);
     this.rows.set(id, row); this.updateRow(id);
   }
   private updateRow(id: string) {
@@ -171,18 +192,28 @@ export class SettingTab extends PluginSettingTab {
       new ButtonComponent(empty).setButtonText(localize("New group", "新建分组")).onClick(() => this.addGroup()); return;
     }
     this.editorCleanup = renderEditor(this.editor, this.app, rule, {
-      changed: () => this.changed(), back: () => this.collapseEditor(), duplicate: () => this.addRule(rule), remove: () => this.removeRule(), move: delta => this.move(this.selectedRuleId!, delta),
+      changed: () => { this.changed(); if (rule.queryMode === "emoji-shortcodes") this.renderList(); }, back: () => this.collapseEditor(), duplicate: () => this.addRule(rule), remove: () => this.removeRule(), move: delta => this.move(this.selectedRuleId!, delta),
       groupChanged: () => { syncGroupedQueryOrder(config); this.changed(); this.renderList(); this.renderEditor(); }, refresh: () => this.renderEditor(),
-    }, { groups: config.groups, groupOrder: repairGroupOrder(config), ruleId: this.selectedRuleId || undefined });
+    }, { groups: Object.fromEntries(Object.entries(config.groups ?? {}).filter(([id]) => !getBuiltinEmojiGroup(config, id))), groupOrder: repairGroupOrder(config), ruleId: this.selectedRuleId || undefined });
   }
   private renderGroupEditor(id: string, group: RuleGroup) {
+    const config = this.plugin.settings.staticHighlighter, builtin = getBuiltinEmojiGroup(config, id);
     const header = this.editor.createDiv("kd-editor-toolbar");
     iconButton(header, "panel-right-close", localize("Collapse settings", "收起设置"), () => this.collapseEditor()).buttonEl.addClass("kd-back");
-    header.createSpan({ cls: "kd-caption", text: localize("Group appearance", "分组样式") });
+    header.createSpan({ cls: "kd-caption", text: builtin ? localize("Built-in group", "内置分组") : localize("Group appearance", "分组样式") });
     const buttons = header.createDiv("kd-actions");
     const order = repairGroupOrder(this.plugin.settings.staticHighlighter), index = order.indexOf(id);
     iconButton(buttons, "arrow-up", t("up"), () => this.moveGroup(id, -1)).setDisabled(index <= 0);
     iconButton(buttons, "arrow-down", t("down"), () => this.moveGroup(id, 1)).setDisabled(index >= order.length - 1);
+    if (builtin) {
+      renderBuiltinEmojiEditor(this.editor, this.app, builtin.rule, {
+        effective: () => getEffectiveRule(builtin.rule, config.groups),
+        enabled: () => group.enabled !== false && builtin.rule.enabled !== false,
+        setEnabled: enabled => setBuiltinEmojiEnabled(config, id, enabled),
+        changed: () => { this.changed(); this.renderList(); },
+      });
+      return;
+    }
     iconButton(buttons, "trash-2", localize("Remove group, keep rules", "删除分组，保留规则"), () => this.removeGroup(id)).buttonEl.addClass("kd-delete");
     const input = new TextComponent(this.editor).setValue(group.name).setPlaceholder(localize("Group name", "分组名称")).onChange(value => { group.name = value; this.changed(); this.renderList(); });
     input.inputEl.addClass("kd-name-input"); input.inputEl.setAttribute("aria-label", localize("Group name", "分组名称"));
@@ -195,7 +226,8 @@ export class SettingTab extends PluginSettingTab {
   }
   private addRule(template?: SearchQuery) {
     const config = this.plugin.settings.staticHighlighter, id = `rule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const groupId = this.selectedGroupId || (this.selectedRuleId && config.queries[this.selectedRuleId]?.groupId) || undefined;
+    const candidateGroup = this.selectedGroupId || (this.selectedRuleId && config.queries[this.selectedRuleId]?.groupId) || undefined;
+    const groupId = getBuiltinEmojiGroup(config, candidateGroup) ? undefined : candidateGroup;
     const rule: SearchQuery = template ? { ...structuredClone(template), name: `${ruleLabel(template)} (${t("copy")})` } : { query: "", regex: false, queryMode: "keywords", enabled: true, ...(groupId ? { groupId } : {}) };
     const index = template && this.selectedRuleId ? config.queryOrder.indexOf(this.selectedRuleId) + 1 : config.queryOrder.length;
     config.queries[id] = rule; config.queryOrder.splice(index, 0, id); syncGroupedQueryOrder(config);
@@ -246,6 +278,7 @@ export class SettingTab extends PluginSettingTab {
   }
   private commitDrop(action: GroupedReorderAction) {
     const config = this.plugin.settings.staticHighlighter;
+    if (action.type === "rule" && getBuiltinEmojiGroup(config, action.groupId)) return;
     const changed = action.type === "group" ? moveRuleGroup(config, action.id, action.beforeGroupId) : moveRuleToGroup(config, action.id, action.groupId, action.beforeId);
     if (!changed) return;
     if (action.type === "rule" && action.groupId && config.groups?.[action.groupId]) config.groups[action.groupId].collapsed = false;

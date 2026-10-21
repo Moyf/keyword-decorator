@@ -4,7 +4,7 @@ import { EMOJI_SHORTCODES } from "../src/emoji/data";
 import { lookupEmojiShortcode } from "../src/emoji/shortcodes";
 import { compileRules, findMatches, findMatchesInRanges } from "../src/highlighters/matching";
 import { getEffectiveQueries } from "../src/settings/groups";
-import { installDefaultPresets } from "../src/settings/presets";
+import { getBuiltinEmojiGroup, installDefaultPresets, setBuiltinEmojiEnabled } from "../src/settings/presets";
 import { normalizeSettings, SearchQuery } from "../src/settings/settings";
 import { ExportModal } from "../src/settings/export";
 import { applySettingsImport, parseSettingsImport } from "../src/settings/import";
@@ -15,6 +15,49 @@ function preset() {
   installDefaultPresets(settings.staticHighlighter);
   return settings;
 }
+
+void test("legacy shortcode groups become built-ins without rewriting saved settings", () => {
+  const settings = preset();
+  const config = settings.staticHighlighter;
+  const groupId = config.groupOrder![0];
+  config.groups![groupId].name = "My renamed emoji";
+  config.groups![groupId].enabled = false;
+  config.queries[config.queryOrder[0]].hideText = false;
+  const before = JSON.stringify(settings);
+  const builtin = getBuiltinEmojiGroup(config, groupId);
+  assert.ok(builtin);
+  assert.equal(builtin?.ruleId, config.queryOrder[0]);
+  assert.equal(builtin?.rule.hideText, false);
+  assert.equal(getEffectiveQueries(config)[builtin.ruleId].enabled, false);
+  assert.equal(JSON.stringify(settings), before);
+});
+
+void test("built-in recognition never hides ordinary rules or treats a mixed group as built-in", () => {
+  const config = preset().staticHighlighter;
+  const groupId = config.groupOrder![0];
+  config.queries.normal = { query: "mine", regex: false, groupId };
+  config.queryOrder.push("normal");
+  assert.equal(getBuiltinEmojiGroup(config, groupId), undefined);
+  assert.equal(getBuiltinEmojiGroup(config), undefined);
+  assert.equal(getBuiltinEmojiGroup(config, "missing"), undefined);
+  delete config.queries[config.queryOrder[0]];
+  assert.equal(getBuiltinEmojiGroup(config, groupId), undefined);
+});
+
+void test("one built-in switch controls legacy group and rule enablement while retaining appearance", () => {
+  const config = preset().staticHighlighter;
+  const groupId = config.groupOrder![0];
+  const rule = config.queries[config.queryOrder[0]];
+  rule.enabled = false; rule.hideText = false; rule.textColor = "#123456";
+  setBuiltinEmojiEnabled(config, groupId, true);
+  assert.equal(config.groups![groupId].enabled, true);
+  assert.equal(rule.enabled, true);
+  assert.equal(findMatches(":happy:", compileRules(getEffectiveQueries(config), config.queryOrder)).length, 1);
+  setBuiltinEmojiEnabled(config, groupId, false);
+  assert.equal(findMatches(":happy:", compileRules(getEffectiveQueries(config), config.queryOrder)).length, 0);
+  assert.equal(rule.hideText, false);
+  assert.equal(rule.textColor, "#123456");
+});
 
 void test("shortcodes resolve Unicode sequences, aliases, signs and the friendly happy alias", () => {
   assert.equal(lookupEmojiShortcode(":smile:"), "😄");
