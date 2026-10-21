@@ -1,0 +1,33 @@
+import { App, ToggleComponent } from "obsidian";
+import { localize, t } from "../i18n";
+import type { SearchQuery } from "./settings";
+import { renderPreview } from "./ui-helpers";
+
+interface BuiltinActions {
+  effective: () => SearchQuery;
+  enabled: () => boolean;
+  setEnabled: (enabled: boolean) => void;
+  changed: () => void;
+}
+
+/** Built-in conversions have their own controls, separate from ordinary match types. */
+export function renderBuiltinEmojiEditor(container: HTMLElement, app: App, rule: SearchQuery, actions: BuiltinActions): void {
+  container.createDiv({ cls: "kd-section-heading", text: "Emoji shortcodes" });
+  container.createDiv({ cls: "kd-caption", text: localize(
+    "Display :smile:, :heart: and :happy: as system emoji. Includes 1,914 offline aliases; unknown names stay unchanged.",
+    "将 :smile:、:heart:、:happy: 等短码显示为系统 Emoji。内置 1,914 个离线别名，未知名称保留原样。",
+  ) });
+  const preview = container.createDiv("kd-live-preview kd-preview-area");
+  const refresh = () => renderPreview(preview, app, actions.effective());
+  refresh();
+  const toggle = (label: string, description: string, value: boolean, changed: (enabled: boolean) => void) => {
+    const row = container.createDiv("kd-option-row"), info = row.createDiv("kd-option-info");
+    info.createDiv({ cls: "kd-option-title", text: label });
+    info.createDiv({ cls: "kd-caption", text: description });
+    new ToggleComponent(row).setValue(value).onChange(enabled => {
+      changed(enabled); refresh(); actions.changed();
+    }).toggleEl.setAttribute("aria-label", label);
+  };
+  toggle(localize("Enable Emoji shortcodes", "启用 Emoji 短码"), t("enabledDesc"), actions.enabled(), actions.setEnabled);
+  toggle(t("hideText"), t("hideDesc"), actions.effective().hideText === true, enabled => { rule.hideText = enabled; });
+}

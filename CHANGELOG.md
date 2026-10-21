@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 Added
 
-- **Emoji shortcodes**: Add a default group with 1,914 offline Unicode aliases, including `:happy:`, using one matcher; preserve existing rule priority and preset edits across reload and import/export, and support hiding emoji shortcode text with cursor recovery.
+- **Emoji shortcodes**: Add a dedicated built-in group with enable and hide-text switches for 1,914 offline aliases, including `:happy:`. Keep ordinary match types limited to keywords and regex; preserve existing preset settings, priority, import/export and cursor recovery.
 
 - **Rule workbench**: Manage rules with automatic saving, master and per-rule switches, filtering, duplication, reordering and deletion undo, in a responsive layout with independently scrolling panes.
 - **Groups and inheritance**: Organize rules into collapsible groups, enable or disable a group together, share appearance with per-rule overrides, and reorder whole groups by dragging or with Move up / Move down buttons.
@@ -30,7 +30,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 新增
 
-- **Emoji 短码**：新增含 1,914 个离线 Unicode 别名的默认分组，支持 `:happy:`，整套字典共用一条匹配规则；保留现有优先级、预设编辑及导入导出状态，支持隐藏短码文字并在光标移入时恢复原文。
+- **Emoji 短码**：以特殊内置组提供 1,914 个离线别名（含 `:happy:`），独立控制整套启停及隐藏文字；普通匹配方式仅保留关键词和正则，兼容现有预设设置、优先级、导入导出及光标恢复。
 
 - **规则工作台**：支持自动保存、总开关和单规则开关、筛选、复制、排序和删除撤销；采用响应布局，列表与编辑区独立滚动。
 - **分组与继承**：支持可折叠分组、整组启停、共享外观及单规则覆盖；可拖动整组排序，也可使用「上移／下移」按钮。

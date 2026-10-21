@@ -35,7 +35,9 @@ Use `&` in Custom CSS to target this rule's matches, or the line when whole-line
 
 The default **Emoji shortcodes** group displays `:smile:` as 😄, `:heart:` as ❤️ and `:happy:` as 😄, in both the editor and reading view. Its single rule recognizes 1,914 aliases using a bundled local dictionary. No images, extra runtime dependency or network connection are required; appearance follows the device's emoji font. Unknown names stay unchanged. Discord server custom emoji and animated emoji are not included.
 
-The group is enabled and collapsed initially. It is added once after existing rules, preserving their priority; renamed, disabled or deleted presets are not reset on reload. Switch off the group or rule to pause it. **Hide matched text** is enabled for this preset: move the cursor into a match to edit the original shortcode, or turn the switch off to show the emoji alongside its shortcode. Notes keep their original Markdown. You can also select **Emoji shortcodes** as a rule's match type.
+This is a special built-in group, marked **Built-in** in the list. Click its name for **Enable Emoji shortcodes** and **Hide matched text**; it has no ordinary rule list or match-type selector. Normal rules offer only Keywords and Regular expression. The group is added once after existing rules, preserving their priority; existing presets are recognized with their saved appearance and disabled state intact.
+
+**Hide matched text** is enabled initially: move the cursor into a match to edit the original shortcode, or turn the switch off to show the emoji alongside its shortcode. Notes keep their original Markdown. The built-in group can still be reordered to change its priority; new custom rules are created outside it.
 
 The aliases come from [gemoji](https://github.com/github/gemoji), with an additional `happy` alias. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the pinned source and license.
 
@@ -97,7 +99,7 @@ Build outputs are in `dist/`. Local builds copy only plugin assets, preserving t
 
 ## 中文说明
 
-默认分组 **Emoji shortcodes** 可将 `:smile:`、`:heart:`、`:happy:` 显示为对应的系统 Emoji。共支持 1,914 个别名，使用一条规则和本地字典，无需网络或图片素材；未知短码保留原样，不含 Discord 服务器自定义表情及动图。该分组首次启用时追加到现有规则之后，默认开启并收起；后续重载会保留改名、关闭和删除操作。预设默认隐藏短码文字，光标移入即可编辑原文；关闭「隐藏匹配文字」可同时显示 Emoji 与短码。普通 Emoji 规则也支持此开关。
+**Emoji shortcodes** 作为带「内置」标识的特殊分组显示，可将 `:smile:`、`:heart:`、`:happy:` 转为系统 Emoji。共支持 1,914 个离线别名，未知短码保留原样，不含 Discord 服务器自定义表情及动图。点击组名即可控制「启用 Emoji 短码」和「隐藏匹配文字」，不再显示内部规则或额外匹配方式；普通规则只有关键词和正则两项。现有预设自动识别，保留原有外观及关闭状态，也可继续调整整组优先级；新建普通规则会放在内置组之外。默认隐藏短码，光标移入即可编辑原文；关闭隐藏后可同时显示 Emoji 与短码。
 
 在编辑器和阅读视图中，为关键词添加颜色、文字样式、Emoji、Lucide 图标、库内图片或 SVG。插件只改变显示，不改动笔记原文。
 

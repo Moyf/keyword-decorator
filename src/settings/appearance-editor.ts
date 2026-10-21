@@ -12,7 +12,6 @@ interface AppearanceContext {
   effective?: () => RuleAppearance;
   inherited?: boolean;
   refresh?: () => void;
-  emojiShortcodes?: boolean;
 }
 
 export function renderAppearance(container: HTMLElement, app: App, style: RuleAppearance, onChanged: () => void, context: AppearanceContext = {}): () => void {
@@ -65,7 +64,6 @@ export function renderAppearance(container: HTMLElement, app: App, style: RuleAp
   let currentType: PrefixType = initial.prefixType === "image" && /^https?:/i.test(initial.prefixValue || "") ? "url" : initial.prefixType || "none";
   type.value = currentType;
   reset(typeField.wrap, ["prefixType", "prefixValue", "prefixValues"]);
-  typeField.wrap.toggleClass("is-hidden", !!context.emojiShortcodes);
   const source = marker.createDiv("kd-marker-source");
   const hideRow = toggle(marker, "hideText", t("hideText"), t("hideDesc"));
   const inheritColorRow = toggle(marker, "iconInheritColor", localize("Use text color for icon", "图标继承文字颜色"), localize("Use this rule's text color for its Lucide icon.", "Lucide 图标使用此规则的文字颜色。"), true);
@@ -75,11 +73,6 @@ export function renderAppearance(container: HTMLElement, app: App, style: RuleAp
   };
   function markerFields() {
     imageSuggest?.close(); imageSuggest = undefined; iconSuggest?.destroy(); iconSuggest = undefined; source.empty();
-    if (context.emojiShortcodes) {
-      hideRow.removeClass("is-hidden"); inheritColorRow.addClass("is-hidden");
-      source.createDiv({ cls: "kd-caption", text: localize("Each shortcode displays its matching system emoji. No images or network connection are required.", "每个短码显示为对应的系统 Emoji，无需图片或网络连接。") });
-      return;
-    }
     const imageType = ["image", "url", "svg"].includes(currentType);
     hideRow.toggleClass("is-hidden", !imageType && currentType !== "emoji"); inheritColorRow.toggleClass("is-hidden", currentType !== "icon");
     if (currentType === "none") return;
