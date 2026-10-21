@@ -175,6 +175,8 @@
 .kd-group { flex-shrink: 0; min-width: 0; }
 .kd-group + .kd-group { margin-top: 12px; }
 .kd-group-header { display: flex; align-items: center; gap: 3px; padding: 6px 4px 6px 0; min-width: 0; border: 1px solid transparent; border-radius: var(--radius-s); }
+.kd-builtin-icon { display: flex; align-items: center; padding: 4px; color: var(--text-muted); }
+.keyword-decorator-settings .kd-builtin-icon svg { width: 16px; height: 16px; }
 .kd-group-header.is-selected { border-color: var(--background-modifier-border-hover); background: var(--background-modifier-hover); }
 .keyword-decorator-settings .kd-group-title { flex: 1; min-width: 0; padding: 0 2px; height: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; font-size: var(--font-ui-small); font-weight: var(--font-semibold); color: var(--text-normal); background: transparent; box-shadow: none; border: 0; }
 .kd-group-header.is-disabled .kd-group-title { opacity: 0.5; }

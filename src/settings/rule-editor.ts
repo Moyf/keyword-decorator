@@ -5,6 +5,7 @@ import { QueryMode, RuleGroup, SearchQuery } from "./settings";
 import { clearRuleAppearance, getEffectiveRule } from "./groups";
 import { field, iconButton, renderPreview } from "./ui-helpers";
 import { renderAppearance } from "./appearance-editor";
+import { renderBuiltinEmojiEditor } from "./builtin-editor";
 
 interface EditorActions {
   changed: () => void; back: () => void; duplicate: () => void; remove: () => void; move: (delta: number) => void;
@@ -20,6 +21,15 @@ export function renderEditor(container: HTMLElement, app: App, rule: SearchQuery
   const buttons = header.createDiv("kd-actions");
   iconButton(buttons, "arrow-up", t("up"), () => actions.move(-1));
   iconButton(buttons, "arrow-down", t("down"), () => actions.move(1));
+  if (rule.queryMode === "emoji-shortcodes") {
+    header.querySelector(".kd-caption")?.setText(localize("Built-in conversion", "内置转换"));
+    iconButton(buttons, "trash-2", t("delete"), actions.remove).buttonEl.addClass("kd-delete");
+    renderBuiltinEmojiEditor(container, app, rule, {
+      effective, enabled: () => rule.enabled !== false,
+      setEnabled: enabled => { rule.enabled = enabled; }, changed: actions.changed,
+    });
+    return () => undefined;
+  }
   iconButton(buttons, "copy-plus", t("duplicate"), actions.duplicate);
   iconButton(buttons, "trash-2", t("delete"), actions.remove).buttonEl.addClass("kd-delete");
   const name = new TextComponent(container).setPlaceholder(t("namePlaceholder")).setValue(rule.name || "").onChange(value => {
@@ -53,31 +63,27 @@ export function renderEditor(container: HTMLElement, app: App, rule: SearchQuery
   match.createDiv({ cls: "kd-section-heading", text: t("matching") });
   const modeField = field(match, t("mode")), mode = modeField.wrap.createEl("select", { attr: { id: modeField.id } });
   for (const value of ["keywords", "regex"] as const) mode.createEl("option", { value, text: t(value) });
-  mode.createEl("option", { value: "emoji-shortcodes", text: "Emoji shortcodes" });
-  mode.value = rule.queryMode === "emoji-shortcodes" ? "emoji-shortcodes" : rule.queryMode === "regex" || rule.regex ? "regex" : "keywords";
+  mode.value = rule.queryMode === "regex" || rule.regex ? "regex" : "keywords";
   const queryField = field(match, t("query"));
-  const visibleQuery = rule.queryMode === "emoji-shortcodes" ? ":smile:" : rule.queryMode === "multiple" ? rule.query.split(/[\n,]/).map(value => value.trim()).filter(Boolean).join("\n") : rule.query;
+  const visibleQuery = rule.queryMode === "multiple" ? rule.query.split(/[\n,]/).map(value => value.trim()).filter(Boolean).join("\n") : rule.query;
   const query = new TextAreaComponent(queryField.wrap).setValue(visibleQuery).onChange(value => {
     rule.query = value; rule.queryMode = mode.value as QueryMode; rule.regex = mode.value === "regex"; validate(); change();
   });
   query.inputEl.id = queryField.id; query.inputEl.rows = 2; query.inputEl.spellcheck = false;
   const hint = queryField.wrap.createDiv("kd-caption"), error = queryField.wrap.createDiv({ cls: "kd-error", attr: { role: "status" } });
   function validate() {
-    const shortcodes = mode.value === "emoji-shortcodes";
-    query.inputEl.readOnly = shortcodes;
-    queryField.wrap.querySelector("label")?.setText(shortcodes ? localize("Example shortcode", "短码示例") : t("query"));
     let valid = true;
     if (mode.value === "regex" && rule.query) { try { new RegExp(rule.query, "m"); } catch { valid = false; } }
     const tooLong = mode.value === "regex" && rule.query.length > MAX_REGEX_PATTERN_LENGTH;
     error.setText(tooLong ? localize(`Patterns are limited to ${MAX_REGEX_PATTERN_LENGTH} characters.`, `正则表达式最多 ${MAX_REGEX_PATTERN_LENGTH} 个字符。`) : valid ? "" : t("invalidRegex"));
     query.inputEl.setAttribute("aria-invalid", String(!valid || tooLong));
-    hint.setText(shortcodes ? localize("Matches all known :shortcodes:, including :smile:, :heart: and :happy:. Unknown names stay unchanged.", "匹配全部已知 :shortcodes:，例如 :smile:、:heart:、:happy:；未知名称保留原样。") : mode.value === "regex" ? localize("Enter a pattern without / delimiters. ^ and $ match the start and end of each line.", "填写表达式，不包含两侧的 /；^ 和 $ 分别匹配每行的开头和结尾。") : t("queryHint"));
+    hint.setText(mode.value === "regex" ? localize("Enter a pattern without / delimiters. ^ and $ match the start and end of each line.", "填写表达式，不包含两侧的 /；^ 和 $ 分别匹配每行的开头和结尾。") : t("queryHint"));
   }
   mode.addEventListener("change", () => {
-    if (rule.queryMode !== "emoji-shortcodes" && mode.value !== "emoji-shortcodes") rule.query = query.getValue();
+    rule.query = query.getValue();
     rule.queryMode = mode.value as QueryMode; rule.regex = mode.value === "regex";
     validate(); change(); actions.refresh?.();
   });
   validate();
-  return renderAppearance(container, app, rule, change, { effective, inherited: !!rule.groupId && !!context.groups?.[rule.groupId], refresh: actions.refresh, emojiShortcodes: rule.queryMode === "emoji-shortcodes" });
+  return renderAppearance(container, app, rule, change, { effective, inherited: !!rule.groupId && !!context.groups?.[rule.groupId], refresh: actions.refresh });
 }
