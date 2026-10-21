@@ -28,6 +28,6 @@ export function renderBuiltinEmojiEditor(container: HTMLElement, app: App, rule:
       changed(enabled); refresh(); actions.changed();
     }).toggleEl.setAttribute("aria-label", label);
   };
-  toggle(localize("Enable Emoji shortcodes", "启用 Emoji 短码"), t("enabledDesc"), actions.enabled(), actions.setEnabled);
-  toggle(t("hideText"), t("hideDesc"), actions.effective().hideText === true, enabled => { rule.hideText = enabled; });
+  toggle(localize("Enable conversion", "启用转换"), localize("Display :shortcodes: as emoji.", "将 :shortcodes: 显示为 Emoji。"), actions.enabled(), actions.setEnabled);
+  toggle(t("hideText"), localize("Show only emoji. Move the cursor into a match to edit its shortcode.", "仅显示 Emoji；光标移入时显示短码原文。"), actions.effective().hideText === true, enabled => { rule.hideText = enabled; });
 }

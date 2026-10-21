@@ -102,11 +102,11 @@ export class SettingTab extends PluginSettingTab {
     const config = this.plugin.settings.staticHighlighter, rule = config.queries[id];
     if (rule && getBuiltinEmojiGroup(config, rule.groupId)?.ruleId === id) { this.selectGroup(rule.groupId!); return; }
     this.selectedRuleId = id; this.selectedGroupId = null; this.editorCollapsed = false; this.editing = true;
-    this.renderList(); this.renderEditor(); this.syncVisibility();
+    this.renderList(); this.renderEditor(); this.editor.scrollTop = 0; this.syncVisibility();
   }
   private selectGroup(id: string) {
     this.selectedGroupId = id; this.selectedRuleId = null; this.editorCollapsed = false; this.editing = true;
-    this.renderList(); this.renderEditor(); this.syncVisibility();
+    this.renderList(); this.renderEditor(); this.editor.scrollTop = 0; this.syncVisibility();
   }
   private renderList() {
     this.reorderCleanup?.(); this.list.empty(); this.rows.clear(); this.headers.clear();
@@ -164,7 +164,10 @@ export class SettingTab extends PluginSettingTab {
     grip.addEventListener("keydown", event => { if (event.altKey && ["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); this.move(id, event.key === "ArrowUp" ? -1 : 1); this.rows.get(id)?.querySelector<HTMLButtonElement>(".kd-grip")?.focus(); } });
     const select = row.createEl("button", { cls: "kd-select" }); select.createDiv("kd-rule-name"); select.createDiv("kd-rule-sample");
     select.addEventListener("click", () => this.selectRule(id));
-    new ToggleComponent(row).setValue(rule.enabled !== false).onChange(value => { rule.enabled = value; this.changed(); this.updateRow(id); }).toggleEl.setAttribute("aria-label", `${t("enabled")}: ${ruleLabel(rule)}`);
+    new ToggleComponent(row).setValue(rule.enabled !== false).onChange(value => {
+      rule.enabled = value; this.changed(); this.updateRow(id);
+      if (rule.queryMode === "emoji-shortcodes" && this.selectedRuleId === id) this.renderEditor();
+    }).toggleEl.setAttribute("aria-label", `${t("enabled")}: ${ruleLabel(rule)}`);
     this.rows.set(id, row); this.updateRow(id);
   }
   private updateRow(id: string) {
@@ -189,7 +192,7 @@ export class SettingTab extends PluginSettingTab {
       new ButtonComponent(empty).setButtonText(localize("New group", "新建分组")).onClick(() => this.addGroup()); return;
     }
     this.editorCleanup = renderEditor(this.editor, this.app, rule, {
-      changed: () => this.changed(), back: () => this.collapseEditor(), duplicate: () => this.addRule(rule), remove: () => this.removeRule(), move: delta => this.move(this.selectedRuleId!, delta),
+      changed: () => { this.changed(); if (rule.queryMode === "emoji-shortcodes") this.renderList(); }, back: () => this.collapseEditor(), duplicate: () => this.addRule(rule), remove: () => this.removeRule(), move: delta => this.move(this.selectedRuleId!, delta),
       groupChanged: () => { syncGroupedQueryOrder(config); this.changed(); this.renderList(); this.renderEditor(); }, refresh: () => this.renderEditor(),
     }, { groups: Object.fromEntries(Object.entries(config.groups ?? {}).filter(([id]) => !getBuiltinEmojiGroup(config, id))), groupOrder: repairGroupOrder(config), ruleId: this.selectedRuleId || undefined });
   }
