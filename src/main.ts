@@ -1,9 +1,11 @@
 import { Extension } from "@codemirror/state";
-import { MarkdownView, Plugin, setIcon, TFile } from "obsidian";
+import { MarkdownRenderChild, MarkdownView, Plugin, setIcon, TFile } from "obsidian";
 import { buildStyles, staticHighlighterExtension } from "./highlighters/static";
 import addIcons from "./icons/customIcons";
 import { DEFAULT_SETTINGS, DynamicHighlightsSettings } from "./settings/settings";
 import { SettingTab } from "./settings/ui";
+import { isReadingBody, isReadingText } from "./highlighters/scope";
+import { scopeCustomCSS } from "./highlighters/custom-css";
 
 interface CustomCSS {
   css: string;
@@ -30,13 +32,27 @@ export default class DynamicHighlightsPlugin extends Plugin {
     this.updateStyles();
     this.registerEditorExtension(this.extensions);
     this.initCSS();
-    this.registerMarkdownPostProcessor(el => {
-      this.decorateReadingView(el);
+    this.registerMarkdownPostProcessor((el, ctx) => {
+      if (el.isConnected) {
+        this.decorateReadingView(el);
+        return;
+      }
+      // The renderer can run processors before attaching a section to its view.
+      // Wait until attachment, then check the actual containing note body.
+      const child = new MarkdownRenderChild(el);
+      child.onload = () => {
+        const win = el.ownerDocument.defaultView;
+        if (!win) return;
+        const frame = win.requestAnimationFrame(() => this.decorateReadingView(el));
+        child.register(() => win.cancelAnimationFrame(frame));
+      };
+      ctx.addChild(child);
     });
   }
 
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings.staticHighlighter = Object.assign({}, DEFAULT_SETTINGS.staticHighlighter, this.settings.staticHighlighter);
     if (this.settings.selectionHighlighter.highlightDelay < 200) {
       this.settings.selectionHighlighter.highlightDelay = 200;
       this.saveSettings;
@@ -48,16 +64,17 @@ export default class DynamicHighlightsPlugin extends Plugin {
   }
 
   initCSS() {
-    let styleEl = (this.styleEl = document.createElement("style"));
+    let styleEl = (this.styleEl = this.app.workspace.containerEl.ownerDocument.createElement("style"));
     styleEl.setAttribute("type", "text/css");
-    document.head.appendChild(styleEl);
+    styleEl.ownerDocument.head.appendChild(styleEl);
     this.register(() => styleEl.detach());
     this.updateCustomCSS();
   }
 
   updateCustomCSS() {
     this.styleEl.textContent = Object.values(this.settings.staticHighlighter.queries)
-      .map(q => q && q.css)
+      .filter(q => q.enabled !== false)
+      .map(q => q.css ? scopeCustomCSS(q.css, this.styleEl.ownerDocument) : "")
       .join("\n");
     this.app.workspace.trigger("css-change");
     this.refreshReadingViews();
@@ -89,10 +106,12 @@ export default class DynamicHighlightsPlugin extends Plugin {
   }
 
   decorateReadingView(rootEl: HTMLElement) {
+    if (!isReadingBody(rootEl)) return;
     const compiledRules = this.compileReadingRules();
     if (compiledRules.length === 0) return;
 
-    const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT);
+    const ownerDocument = rootEl.ownerDocument;
+    const walker = ownerDocument.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT);
     const textNodes: Text[] = [];
     let node: Node | null;
     while ((node = walker.nextNode())) {
@@ -100,12 +119,7 @@ export default class DynamicHighlightsPlugin extends Plugin {
       if (!textNode.nodeValue?.trim()) continue;
       const parent = textNode.parentElement;
       if (!parent) continue;
-      if (
-        parent.closest("pre, code, .math, .frontmatter, .keyword-decorator-reading-mark, .internal-embed, .cm-content") ||
-        parent.classList.contains("tag")
-      ) {
-        continue;
-      }
+      if (!isReadingText(parent)) continue;
       textNodes.push(textNode);
     }
 
@@ -114,17 +128,17 @@ export default class DynamicHighlightsPlugin extends Plugin {
       const matches = this.collectMatches(original, compiledRules);
       if (matches.length === 0) continue;
 
-      const fragment = document.createDocumentFragment();
+      const fragment = ownerDocument.createDocumentFragment();
       let cursor = 0;
       for (const match of matches) {
         if (match.from > cursor) {
-          fragment.appendChild(document.createTextNode(original.slice(cursor, match.from)));
+          fragment.appendChild(ownerDocument.createTextNode(original.slice(cursor, match.from)));
         }
-        fragment.appendChild(this.createReadingMark(match.rule, original.slice(match.from, match.to)));
+        fragment.appendChild(this.createReadingMark(match.rule, original.slice(match.from, match.to), ownerDocument));
         cursor = match.to;
       }
       if (cursor < original.length) {
-        fragment.appendChild(document.createTextNode(original.slice(cursor)));
+        fragment.appendChild(ownerDocument.createTextNode(original.slice(cursor)));
       }
       textNode.replaceWith(fragment);
     }
@@ -188,8 +202,8 @@ export default class DynamicHighlightsPlugin extends Plugin {
     return selected;
   }
 
-  createReadingMark(rule: any, text: string) {
-    const span = document.createElement("span");
+  createReadingMark(rule: any, text: string, ownerDocument: Document) {
+    const span = ownerDocument.createElement("span");
     span.addClass("keyword-decorator-reading-mark");
     if (rule.class) span.addClass(rule.class);
     if (rule.textColor) span.style.color = rule.textColor;
@@ -198,15 +212,15 @@ export default class DynamicHighlightsPlugin extends Plugin {
     if (rule.italic) span.style.fontStyle = "italic";
     if (rule.underline) span.style.textDecoration = "underline";
 
-    const prefix = this.createPrefixNode(rule.prefixType, rule.prefixValue);
+    const prefix = this.createPrefixNode(rule.prefixType, rule.prefixValue, ownerDocument);
     if (prefix) span.appendChild(prefix);
-    span.appendChild(document.createTextNode(text));
+    span.appendChild(ownerDocument.createTextNode(text));
     return span;
   }
 
-  createPrefixNode(prefixType?: string, prefixValue?: string) {
+  createPrefixNode(prefixType: string | undefined, prefixValue: string | undefined, ownerDocument: Document) {
     if (!prefixType || prefixType === "none") return null;
-    const prefix = document.createElement("span");
+    const prefix = ownerDocument.createElement("span");
     prefix.addClass("keyword-decorator-prefix");
 
     if (prefixType === "emoji") {
@@ -227,7 +241,7 @@ export default class DynamicHighlightsPlugin extends Plugin {
         setIcon(prefix, "image-off");
         return prefix;
       }
-      const img = document.createElement("img");
+      const img = ownerDocument.createElement("img");
       img.src = src;
       img.alt = "";
       img.addClass("keyword-decorator-prefix-image");

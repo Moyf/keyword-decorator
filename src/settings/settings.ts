@@ -56,6 +56,7 @@ export const DEFAULT_SETTINGS: DynamicHighlightsSettings = {
   staticHighlighter: {
     queries: {},
     queryOrder: [],
+    decorateInSourceMode: false,
   },
 };
 

@@ -1,18 +1,17 @@
 /* #region selection highlighter styles */
 
-.cm-matched-word,
-.cm-matched-string {
+.keyword-decorator-editor-scope .cm-content .cm-matched-word,
+.keyword-decorator-editor-scope .cm-content .cm-matched-string {
   text-decoration: underline dashed var(--text-accent);
 }
 
-.cm-current-word,
-.cm-current-string {
+.keyword-decorator-editor-scope .cm-content .cm-current-word,
+.keyword-decorator-editor-scope .cm-content .cm-current-string {
   text-decoration: underline dotted var(--text-accent);
 }
 
-.cm-editor .keyword-decorator-prefix,
-.markdown-preview-view .keyword-decorator-prefix,
-.markdown-rendered .keyword-decorator-prefix,
+.keyword-decorator-editor-scope .cm-content .keyword-decorator-prefix,
+.workspace-leaf-content[data-type="markdown"] .markdown-reading-view .markdown-preview-view .keyword-decorator-prefix,
 .keyword-decorator-live-prefix {
   display: inline-flex;
   align-items: center;

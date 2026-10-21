@@ -49,6 +49,18 @@ export class SettingTab extends PluginSettingTab {
       });
     });
 
+    new Setting(containerEl)
+      .setName("对源码视图添加装饰")
+      .setDesc("默认关闭，让源码模式保持原始文本。开启后仍会跳过链接、代码、公式等内容。")
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.staticHighlighter.decorateInSourceMode)
+        .onChange(async value => {
+          this.plugin.settings.staticHighlighter.decorateInSourceMode = value;
+          await this.plugin.saveSettings();
+          this.plugin.updateStaticHighlighter();
+          this.plugin.updateCustomCSS();
+        }));
+
     const layout = containerEl.createDiv("keyword-decorator-layout");
     const listPanel = layout.createDiv("keyword-decorator-rules");
     const editorPanel = layout.createDiv("keyword-decorator-editor");

@@ -2,7 +2,15 @@
 
 An Obsidian plugin that decorates keyword matches in the editor.
 
-This plugin currently only works in the Source or Live Preview editor modes. For now it will not affect Reading mode or the Legacy Editor.
+Decorations apply to note bodies in Live Preview and Reading view. Source mode shows the original text by default; enable **对源码视图添加装饰** in the plugin settings to decorate it too. The Legacy Editor is not supported.
+
+### Rendering boundaries
+
+- Quick Switcher, suggestions, hover previews, settings and other plugin dialogs do not receive note decorations.
+- Links are excluded, including their display text, destinations, wiki-link aliases, reference links and bare URLs.
+- Code, math, frontmatter/properties, tags, embeds, comments and Markdown formatting markers are excluded in the editor. Reading view also skips links, code, math, properties, tags, embeds and interactive controls.
+- Headings, lists, quotes, callout text and tables remain eligible as ordinary note content.
+- Custom CSS is scoped to the note body, and to enabled decoration editors in editing mode. Global directives such as `@import`, `@font-face` and `@keyframes` are ignored.
 
 ### Selection Highlights
 
@@ -96,7 +104,7 @@ The default list can be found here: https://gist.github.com/sebleier/554280
 
 ### Limitations
 
-- There is currently no support for dynamic highlights in reading/preview mode.
+- Selection-based highlights are not available in Reading view; persistent keyword rules are supported there.
 - Only strings with 3 or more characters will be highlighted in selection highlight mode
 
 ### Acknowledgments

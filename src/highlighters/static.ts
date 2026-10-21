@@ -1,7 +1,7 @@
 // originally from: https://github.com/codemirror/search/blob/main/src/selection-match.ts
 import { SearchCursor } from "@codemirror/search";
-import { combineConfig, Compartment, Extension, Facet, Range } from "@codemirror/state";
-import { syntaxTree, tokenClassNodeProp } from "@codemirror/language";
+import { combineConfig, Extension, Facet, Range } from "@codemirror/state";
+import { syntaxTree } from "@codemirror/language";
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate, WidgetType } from "@codemirror/view";
 import { cloneDeep } from "lodash";
 import { setIcon, TFile } from "obsidian";
@@ -9,15 +9,18 @@ import DynamicHighlightsPlugin from "src/main";
 import { SearchQueries } from "src/settings/settings";
 import { StyleSpec } from "style-mod";
 import { RegExpCursor } from "./regexp-cursor";
+import { canDecorateEditor, EDITOR_SCOPE_CLASS, excludedEditorRanges, overlapsExcludedRange } from "./scope";
 
 export type StaticHighlightOptions = {
   queries: SearchQueries;
   queryOrder: string[];
+  decorateInSourceMode: boolean;
 };
 
 const defaultOptions: StaticHighlightOptions = {
   queries: {},
   queryOrder: [],
+  decorateInSourceMode: false,
 };
 
 export const staticHighlightConfig = Facet.define<StaticHighlightOptions, Required<StaticHighlightOptions>>({
@@ -29,14 +32,20 @@ export const staticHighlightConfig = Facet.define<StaticHighlightOptions, Requir
   },
 });
 
-const staticHighlighterCompartment = new Compartment();
 let runtimePlugin: DynamicHighlightsPlugin | null = null;
 let imagePrefixCache = new Map<string, string>();
 
 export function staticHighlighterExtension(plugin: DynamicHighlightsPlugin): Extension {
   runtimePlugin = plugin;
   imagePrefixCache = new Map<string, string>();
-  let ext: Extension[] = [staticHighlighter];
+  let ext: Extension[] = [
+    staticHighlighter,
+    EditorView.editorAttributes.of(view =>
+      canDecorateEditor(view.state, view.state.facet(staticHighlightConfig).decorateInSourceMode)
+        ? { class: EDITOR_SCOPE_CLASS }
+        : null
+    ),
+  ];
   let options = plugin.settings.staticHighlighter;
   ext.push(staticHighlightConfig.of(cloneDeep(options)));
   return ext;
@@ -50,8 +59,6 @@ export function buildStyles(plugin: DynamicHighlightsPlugin) {
   let queries = Object.entries(plugin.settings.staticHighlighter.queries);
   let styles: Styles = {};
   for (let [ruleId, query] of queries) {
-    let classNames = [toInternalClassName(ruleId), query.class].filter(Boolean).map(cls => `.${cls}`);
-    if (classNames.length === 0) continue;
     const style: StyleSpec = {};
     if (query.color) style.backgroundColor = query.color;
     if (query.textColor) style.color = query.textColor;
@@ -59,7 +66,7 @@ export function buildStyles(plugin: DynamicHighlightsPlugin) {
     if (query.italic) style.fontStyle = "italic";
     if (query.underline) style.textDecoration = "underline";
     if (Object.keys(style).length === 0) continue;
-    styles[classNames.join(", ")] = style;
+    styles[`.cm-content .${toInternalClassName(ruleId)}`] = style;
   }
   let theme = EditorView.theme(styles);
   return theme;
@@ -88,8 +95,8 @@ class IconWidget extends WidgetType {
     this.prefixValue = prefixValue;
   }
 
-  toDOM() {
-    let headerEl = document.createElement("span");
+  toDOM(view: EditorView) {
+    let headerEl = view.dom.ownerDocument.createElement("span");
     this.className && headerEl.addClass(this.className);
     if (this.prefixType === "emoji") {
       headerEl.addClass("keyword-decorator-prefix");
@@ -107,7 +114,7 @@ class IconWidget extends WidgetType {
         setIcon(headerEl, "image-off");
         return headerEl;
       }
-      const img = document.createElement("img");
+      const img = view.dom.ownerDocument.createElement("img");
       img.src = this.prefixValue || "";
       img.alt = "";
       img.addClass("keyword-decorator-prefix-image");
@@ -142,7 +149,11 @@ const staticHighlighter = ViewPlugin.fromClass(
 
     update(update: ViewUpdate) {
       let reconfigured = update.startState.facet(staticHighlightConfig) !== update.state.facet(staticHighlightConfig);
-      if (update.viewportChanged || reconfigured) {
+      const config = update.state.facet(staticHighlightConfig);
+      const modeChanged = canDecorateEditor(update.startState, config.decorateInSourceMode) !==
+        canDecorateEditor(update.state, config.decorateInSourceMode);
+      const parsed = syntaxTree(update.startState) !== syntaxTree(update.state);
+      if (update.viewportChanged || reconfigured || modeChanged || (!update.docChanged && parsed)) {
         this.clearRecomputeTimer();
         let { token, widget } = this.getDeco(update.view);
         this.decorations = token;
@@ -151,6 +162,8 @@ const staticHighlighter = ViewPlugin.fromClass(
       }
 
       if (update.docChanged) {
+        this.decorations = this.decorations.map(update.changes);
+        this.widgetDecorations = this.widgetDecorations.map(update.changes);
         this.scheduleRecompute(update.view);
       }
     }
@@ -181,28 +194,26 @@ const staticHighlighter = ViewPlugin.fromClass(
       token: DecorationSet;
       widget: DecorationSet;
     } {
+      const config = view.state.facet(staticHighlightConfig);
+      if (!canDecorateEditor(view.state, config.decorateInSourceMode)) {
+        return { token: Decoration.none, widget: Decoration.none };
+      }
       let { state } = view,
         tokenDecos: Range<Decoration>[] = [],
         widgetDecos: Range<Decoration>[] = [],
-        queries = Object.entries(view.state.facet(staticHighlightConfig).queries);
-      const tree = syntaxTree(view.state);
+        queries = Object.entries(config.queries);
       for (let part of view.visibleRanges) {
+        const excluded = excludedEditorRanges(state, part.from, part.to);
         for (let [ruleId, query] of queries) {
-          if (query.enabled === false || !query.query?.trim()) continue;
+          if (!query || query.enabled === false || !query.query?.trim()) continue;
           const internalClass = toInternalClassName(ruleId);
           const mergedClass = [internalClass, query.class].filter(Boolean).join(" ");
 
           const mode = query.queryMode || (query.regex ? "regex" : "single");
           const processMatch = (activeCursor: RegExpCursor | SearchCursor) => {
             let { from, to } = activeCursor.value;
+            if (to <= from || overlapsExcludedRange(excluded, from, to)) return;
             let string = state.sliceDoc(from, to).trim();
-            const linePos = view.state.doc.lineAt(from)?.from;
-            let syntaxNode = tree.resolveInner(linePos + 1),
-              nodeProps = syntaxNode.type.prop(tokenClassNodeProp),
-              excludedSection = ["hmd-codeblock", "hmd-frontmatter"].find(token =>
-                nodeProps?.split(" ").includes(token)
-              );
-            if (excludedSection) return;
             const markDeco = Decoration.mark({ class: mergedClass, attributes: { "data-contents": string } });
             tokenDecos.push(markDeco.range(from, to));
             if (query.prefixType && query.prefixType !== "none" && query.prefixValue) {
