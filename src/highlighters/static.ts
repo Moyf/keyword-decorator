@@ -1,27 +1,18 @@
-// originally from: https://github.com/codemirror/search/blob/main/src/selection-match.ts
-import { SearchCursor } from "@codemirror/search";
-import { combineConfig, Extension, Facet, Range } from "@codemirror/state";
+import { combineConfig, Extension, Facet, Range, StateEffect, Text } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate, WidgetType } from "@codemirror/view";
-import { cloneDeep } from "lodash";
-import { setIcon, TFile } from "obsidian";
+import { App } from "obsidian";
+import { createPrefixNode, isImageSourceFailed, isSvgMarkupValid, resolveImage } from "../markers";
+import { compileRules, CompiledRule, findMatchesInRanges } from "./matching";
+import { SearchQueries } from "../settings/settings";
+import { getEffectiveQueries } from "../settings/groups";
 import DynamicHighlightsPlugin from "src/main";
-import { SearchQueries } from "src/settings/settings";
-import { StyleSpec } from "style-mod";
-import { RegExpCursor } from "./regexp-cursor";
-import { canDecorateEditor, EDITOR_SCOPE_CLASS, excludedEditorRanges, overlapsExcludedRange } from "./scope";
+import { canDecorateEditor, EDITOR_SCOPE_CLASS, editorTextRanges, excludedEditorRanges, overlapsExcludedRange } from "./scope";
 
-export type StaticHighlightOptions = {
-  queries: SearchQueries;
-  queryOrder: string[];
-  decorateInSourceMode: boolean;
-};
-
-const defaultOptions: StaticHighlightOptions = {
-  queries: {},
-  queryOrder: [],
-  decorateInSourceMode: false,
-};
+export type StaticHighlightOptions = { queries: SearchQueries; queryOrder: string[]; enabled?: boolean; decorateInSourceMode?: boolean };
+const defaultOptions: StaticHighlightOptions = { queries: {}, queryOrder: [], enabled: true, decorateInSourceMode: false };
+let runtimeApp: App | null = null;
+const refreshDecorations = StateEffect.define<null>();
 
 export const staticHighlightConfig = Facet.define<StaticHighlightOptions, Required<StaticHighlightOptions>>({
   combine(options: readonly StaticHighlightOptions[]) {
@@ -32,272 +23,187 @@ export const staticHighlightConfig = Facet.define<StaticHighlightOptions, Requir
   },
 });
 
-let runtimePlugin: DynamicHighlightsPlugin | null = null;
-let imagePrefixCache = new Map<string, string>();
-
 export function staticHighlighterExtension(plugin: DynamicHighlightsPlugin): Extension {
-  runtimePlugin = plugin;
-  imagePrefixCache = new Map<string, string>();
-  let ext: Extension[] = [
-    staticHighlighter,
-    EditorView.editorAttributes.of(view =>
-      canDecorateEditor(view.state, view.state.facet(staticHighlightConfig).decorateInSourceMode)
-        ? { class: EDITOR_SCOPE_CLASS }
-        : null
-    ),
+  runtimeApp = plugin.app;
+  const config = plugin.settings.staticHighlighter;
+  return [staticHighlighter, staticHighlightConfig.of({ ...structuredClone(config), queries: getEffectiveQueries(config), enabled: plugin.settings.enabled }),
+    EditorView.editorAttributes.of(view => {
+      const options = view.state.facet(staticHighlightConfig);
+      return options.enabled && canDecorateEditor(view.state, options.decorateInSourceMode)
+        ? { class: EDITOR_SCOPE_CLASS } : null;
+    }),
   ];
-  let options = plugin.settings.staticHighlighter;
-  ext.push(staticHighlightConfig.of(cloneDeep(options)));
-  return ext;
 }
 
-export interface Styles {
-  [selector: string]: StyleSpec;
-}
+export interface Styles { [selector: string]: Record<string, string> }
 
-export function buildStyles(plugin: DynamicHighlightsPlugin) {
-  let queries = Object.entries(plugin.settings.staticHighlighter.queries);
-  let styles: Styles = {};
-  for (let [ruleId, query] of queries) {
-    const style: StyleSpec = {};
+export function buildStyles(plugin: DynamicHighlightsPlugin): Extension {
+  const styles: Styles = {};
+  if (!plugin.settings.enabled) return EditorView.theme(styles);
+  const queries = getEffectiveQueries(plugin.settings.staticHighlighter);
+  for (const [ruleId, query] of Object.entries(queries)) {
+    if (query.enabled === false) continue;
+    const selector = `.cm-content .${toInternalClassName(ruleId)}`;
+    const style: Record<string, string> = {};
     if (query.color) style.backgroundColor = query.color;
     if (query.textColor) style.color = query.textColor;
     if (query.fontWeight) style.fontWeight = query.fontWeight;
-    if (query.italic) style.fontStyle = "italic";
-    if (query.underline) style.textDecoration = "underline";
-    if (Object.keys(style).length === 0) continue;
-    styles[`.cm-content .${toInternalClassName(ruleId)}`] = style;
+    const cssProps: Record<string, string> = {};
+    if (query.italic) cssProps["font-style"] = "italic";
+    if (query.underline) cssProps["text-decoration"] = "underline";
+    if (Object.keys(cssProps).length) Object.assign(style, cssProps);
+    if (Object.keys(style).length) styles[selector] = style;
   }
-  let theme = EditorView.theme(styles);
-  return theme;
+  return EditorView.theme(styles);
 }
 
-function toInternalClassName(ruleId: string) {
+function toInternalClassName(ruleId: string): string {
   return `kd-rule-${ruleId}`.replace(/[^a-zA-Z0-9_-]/g, "-");
-}
-
-function splitKeywords(value: string) {
-  return value
-    .split(/[\n,]/g)
-    .map(v => v.trim())
-    .filter(Boolean);
-}
-
-class IconWidget extends WidgetType {
-  className: string | undefined;
-  prefixType?: string;
-  prefixValue?: string;
-
-  constructor(className?: string, prefixType?: string, prefixValue?: string) {
-    super();
-    this.className = className;
-    this.prefixType = prefixType;
-    this.prefixValue = prefixValue;
-  }
-
-  toDOM(view: EditorView) {
-    let headerEl = view.dom.ownerDocument.createElement("span");
-    this.className && headerEl.addClass(this.className);
-    if (this.prefixType === "emoji") {
-      headerEl.addClass("keyword-decorator-prefix");
-      headerEl.textContent = this.prefixValue || "";
-    } else if (this.prefixType === "icon") {
-      headerEl.addClass("keyword-decorator-prefix");
-      try {
-        setIcon(headerEl, this.prefixValue || "dot-network");
-      } catch {
-        headerEl.textContent = this.prefixValue || "*";
-      }
-    } else if (this.prefixType === "image") {
-      headerEl.addClass("keyword-decorator-prefix");
-      if (!this.prefixValue) {
-        setIcon(headerEl, "image-off");
-        return headerEl;
-      }
-      const img = view.dom.ownerDocument.createElement("img");
-      img.src = this.prefixValue || "";
-      img.alt = "";
-      img.addClass("keyword-decorator-prefix-image");
-      img.onerror = () => {
-        while (headerEl.firstChild) {
-          headerEl.removeChild(headerEl.firstChild);
-        }
-        setIcon(headerEl, "image-off");
-      };
-      headerEl.appendChild(img);
-    }
-    return headerEl;
-  }
-
-  ignoreEvent() {
-    return true;
-  }
 }
 
 const staticHighlighter = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
     widgetDecorations: DecorationSet;
+    private compiled: CompiledRule[] = [];
+    private config: StaticHighlightOptions;
     private recomputeTimer: number | null = null;
-    private readonly docChangeDebounceMs = 90;
+    private readonly debounceMs = 90;
+    private lastDocument: Text | null = null;
+    private documentText = "";
 
-    constructor(view: EditorView) {
-      let { token, widget } = this.getDeco(view);
-      this.decorations = token;
-      this.widgetDecorations = widget;
+    constructor(private readonly view: EditorView) {
+      this.config = view.state.facet(staticHighlightConfig);
+      this.compiled = compileRules(this.config.queries, this.config.queryOrder);
+      ({ token: this.decorations, widget: this.widgetDecorations } = this.getDeco(view));
     }
 
     update(update: ViewUpdate) {
-      let reconfigured = update.startState.facet(staticHighlightConfig) !== update.state.facet(staticHighlightConfig);
       const config = update.state.facet(staticHighlightConfig);
-      const modeChanged = canDecorateEditor(update.startState, config.decorateInSourceMode) !==
-        canDecorateEditor(update.state, config.decorateInSourceMode);
+      const reconfigured = config !== this.config || update.startState.facet(staticHighlightConfig) !== config;
+      const forced = update.transactions.some(transaction => transaction.effects.some(effect => effect.is(refreshDecorations)));
+      const modeChanged = canDecorateEditor(update.startState, config.decorateInSourceMode === true) !==
+        canDecorateEditor(update.state, config.decorateInSourceMode === true);
       const parsed = syntaxTree(update.startState) !== syntaxTree(update.state);
-      if (update.viewportChanged || reconfigured || modeChanged || (!update.docChanged && parsed)) {
-        this.clearRecomputeTimer();
-        let { token, widget } = this.getDeco(update.view);
-        this.decorations = token;
-        this.widgetDecorations = widget;
-        return;
+      if (reconfigured) {
+        this.config = config;
+        this.compiled = compileRules(config.queries, config.queryOrder);
       }
-
       if (update.docChanged) {
+        // Keep old ranges valid while the new document is debounced.
         this.decorations = this.decorations.map(update.changes);
         this.widgetDecorations = this.widgetDecorations.map(update.changes);
+      }
+      if (modeChanged || reconfigured) {
+        this.clearTimer();
+        ({ token: this.decorations, widget: this.widgetDecorations } = this.getDeco(update.view));
+      } else if (update.docChanged) {
         this.scheduleRecompute(update.view);
+      } else if (forced || parsed || update.viewportChanged || (update.selectionSet && this.compiled.some(item => item.rule.hideText))) {
+        this.clearTimer();
+        ({ token: this.decorations, widget: this.widgetDecorations } = this.getDeco(update.view));
       }
     }
 
-    destroy() {
-      this.clearRecomputeTimer();
-    }
+    destroy() { this.clearTimer(); }
 
     private scheduleRecompute(view: EditorView) {
-      this.clearRecomputeTimer();
+      this.clearTimer();
       this.recomputeTimer = window.setTimeout(() => {
         this.recomputeTimer = null;
-        let { token, widget } = this.getDeco(view);
-        this.decorations = token;
-        this.widgetDecorations = widget;
+        if (view !== this.view) return;
+        ({ token: this.decorations, widget: this.widgetDecorations } = this.getDeco(view));
         view.dispatch({});
-      }, this.docChangeDebounceMs);
+      }, this.debounceMs);
     }
 
-    private clearRecomputeTimer() {
-      if (this.recomputeTimer !== null) {
-        window.clearTimeout(this.recomputeTimer);
-        this.recomputeTimer = null;
-      }
+    private clearTimer() {
+      if (this.recomputeTimer !== null) window.clearTimeout(this.recomputeTimer);
+      this.recomputeTimer = null;
     }
 
-    getDeco(view: EditorView): {
-      token: DecorationSet;
-      widget: DecorationSet;
-    } {
-      const config = view.state.facet(staticHighlightConfig);
-      if (!canDecorateEditor(view.state, config.decorateInSourceMode)) {
-        return { token: Decoration.none, widget: Decoration.none };
+    private getDeco(view: EditorView): { token: DecorationSet; widget: DecorationSet } {
+      const tokenDecos: Range<Decoration>[] = [];
+      const widgetDecos: Range<Decoration>[] = [];
+      const lineRules = new Map<number, { priority: number; ruleId: string; rule: SearchQueries[string] }>();
+      if (!this.config.enabled || !this.compiled.length || !canDecorateEditor(view.state, this.config.decorateInSourceMode === true)) return { token: Decoration.none, widget: Decoration.none };
+      const state = view.state;
+      const visibleRanges = view.visibleRanges.filter(range => range.to > range.from);
+      if (!visibleRanges.length) return { token: Decoration.none, widget: Decoration.none };
+      const excluded = excludedEditorRanges(state, state.doc.lineAt(visibleRanges[0].from).from,
+        state.doc.lineAt(visibleRanges[visibleRanges.length - 1].to).to);
+      if (this.lastDocument !== state.doc) {
+        this.lastDocument = state.doc;
+        this.documentText = state.doc.toString();
       }
-      let { state } = view,
-        tokenDecos: Range<Decoration>[] = [],
-        widgetDecos: Range<Decoration>[] = [],
-        queries = Object.entries(config.queries);
-      for (let part of view.visibleRanges) {
-        const excluded = excludedEditorRanges(state, part.from, part.to);
-        for (let [ruleId, query] of queries) {
-          if (!query || query.enabled === false || !query.query?.trim()) continue;
-          const internalClass = toInternalClassName(ruleId);
-          const mergedClass = [internalClass, query.class].filter(Boolean).join(" ");
-
-          const mode = query.queryMode || (query.regex ? "regex" : "single");
-          const processMatch = (activeCursor: RegExpCursor | SearchCursor) => {
-            let { from, to } = activeCursor.value;
-            if (to <= from || overlapsExcludedRange(excluded, from, to)) return;
-            let string = state.sliceDoc(from, to).trim();
-            const markDeco = Decoration.mark({ class: mergedClass, attributes: { "data-contents": string } });
-            tokenDecos.push(markDeco.range(from, to));
-            if (query.prefixType && query.prefixType !== "none" && query.prefixValue) {
-              const prefixValue = resolvePrefixValue(query.prefixType, query.prefixValue);
-              let prefixDeco = Decoration.widget({
-                widget: new IconWidget(undefined, query.prefixType, prefixValue),
-                side: -1,
-              });
-              widgetDecos.push(prefixDeco.range(from, from));
+      const text = this.documentText;
+      for (const match of findMatchesInRanges(text, visibleRanges, this.compiled)) {
+        const from = match.from;
+        const to = match.to;
+        if (overlapsExcludedRange(excluded, from, to)) continue;
+        const startLine = state.doc.lineAt(from);
+        const endLine = state.doc.lineAt(Math.max(from, to - 1));
+        const rule = match.rule as SearchQueries[string];
+        const classes = [toInternalClassName(match.ruleId), ...(rule.class || "").split(/\s+/).filter(Boolean)];
+        if (rule.styleWholeLine) {
+          for (let lineNumber = startLine.number; lineNumber <= endLine.number; lineNumber++) {
+            const current = lineRules.get(lineNumber);
+            if (!current || match.priority < current.priority) {
+              lineRules.set(lineNumber, { priority: match.priority, ruleId: match.ruleId, rule });
             }
-          };
-
-          if (mode === "multiple") {
-            const terms = splitKeywords(query.query);
-            for (const term of terms) {
-              const multiCursor = new SearchCursor(state.doc, term, part.from, part.to);
-              while (!multiCursor.next().done) {
-                processMatch(multiCursor);
-              }
-            }
-            continue;
           }
-
-          try {
-            const cursor =
-              mode === "regex"
-                ? new RegExpCursor(state.doc, query.query, {}, part.from, part.to)
-                : new SearchCursor(state.doc, query.query, part.from, part.to);
-            while (!cursor.next().done) {
-              processMatch(cursor);
-            }
-          } catch (err) {
-            console.debug(err);
+        }
+        const sameLine = startLine.number === endLine.number;
+        const prefixValue = rule.prefixValue ?? rule.prefixValues?.[rule.prefixType || "none"] ?? "";
+        const hasImageMarker = (rule.prefixType === "image" || rule.prefixType === "url") && !!runtimeApp && !!resolveImage(runtimeApp, prefixValue) && !isImageSourceFailed(runtimeApp, prefixValue);
+        const hasSvgMarker = sameLine && rule.prefixType === "svg" && isSvgMarkupValid(view.dom.ownerDocument, prefixValue);
+        const hasEmojiMarker = rule.prefixType === "emoji" && !!(prefixValue || "✨").trim();
+        const selectionOverlaps = rule.hideText && state.selection.ranges.some(selection =>
+          selection.empty ? selection.head >= from && selection.head <= to : selection.from < to && selection.to > from
+        );
+        const hideText = rule.hideText && sameLine && (hasImageMarker || hasSvgMarker || hasEmojiMarker) && !selectionOverlaps;
+        if (hideText) classes.push("keyword-decorator-hide-text");
+        if (!rule.styleWholeLine) {
+          tokenDecos.push(Decoration.mark({ class: classes.join(" "), attributes: { "data-contents": state.sliceDoc(from, to) } }).range(from, to));
+        } else if (hideText) {
+          tokenDecos.push(Decoration.mark({ class: "keyword-decorator-hide-text", attributes: { "data-contents": state.sliceDoc(from, to) } }).range(from, to));
+        }
+        if (rule.prefixType && rule.prefixType !== "none") {
+          const marker = new PrefixWidget(this.view.dom.ownerDocument, runtimeApp, rule, () => this.view.dispatch({ effects: refreshDecorations.of(null) }));
+          widgetDecos.push(Decoration.widget({ widget: marker, side: -1 }).range(from, from));
+        }
+      }
+      for (const [lineNumber, value] of lineRules) {
+        const line = state.doc.line(lineNumber);
+        const classes = [toInternalClassName(value.ruleId), ...(value.rule.class || "").split(/\s+/).filter(Boolean)].join(" ");
+        if (!overlapsExcludedRange(excluded, line.from, line.to)) {
+          tokenDecos.push(Decoration.line({ class: classes }).range(line.from));
+        } else {
+          for (const range of editorTextRanges(excluded, line.from, line.to)) {
+            tokenDecos.push(Decoration.mark({ class: classes }).range(range.from, range.to));
           }
         }
       }
       return {
-        token: Decoration.set(tokenDecos.sort((a, b) => a.from - b.from)),
+        token: Decoration.set(tokenDecos.sort((a, b) => a.from - b.from || a.to - b.to)),
         widget: Decoration.set(widgetDecos.sort((a, b) => a.from - b.from)),
       };
     }
   },
   {
     provide: plugin => [
-      EditorView.decorations.of(v => v.plugin(plugin)?.decorations || Decoration.none),
-      EditorView.decorations.of(v => v.plugin(plugin)?.widgetDecorations || Decoration.none),
+      EditorView.decorations.of(view => view.plugin(plugin)?.decorations || Decoration.none),
+      EditorView.decorations.of(view => view.plugin(plugin)?.widgetDecorations || Decoration.none),
     ],
   }
 );
 
-function resolvePrefixValue(prefixType: string, value: string) {
-  if (prefixType !== "image") return value;
-  const trimmed = value.trim();
-  if (!trimmed) return trimmed;
-  if (/^(https?:|data:|app:|file:)/.test(trimmed)) return trimmed;
-
-  const cached = imagePrefixCache.get(trimmed);
-  if (cached !== undefined) {
-    return cached;
+class PrefixWidget extends WidgetType {
+  constructor(private readonly doc: Document, private readonly app: App | null, private readonly rule: SearchQueries[string], private readonly onImageError: () => void) { super(); }
+  toDOM() {
+    if (!this.app) return this.doc.adoptNode(createSpan());
+    return createPrefixNode(this.app, this.doc, this.rule, this.onImageError) || this.doc.adoptNode(createSpan());
   }
-
-  const path = trimmed.replace(/^!?\[\[/, "").replace(/\]\]$/, "").split("|")[0].trim();
-  const file = resolveVaultImage(path);
-  if (file instanceof TFile) {
-    const resolved = runtimePlugin!.app.vault.getResourcePath(file);
-    imagePrefixCache.set(trimmed, resolved);
-    return resolved;
-  }
-  imagePrefixCache.set(trimmed, "");
-  return "";
-}
-
-function resolveVaultImage(pathOrName: string): TFile | null {
-  if (!runtimePlugin) return null;
-  const byPath = runtimePlugin.app.vault.getAbstractFileByPath(pathOrName);
-  if (byPath instanceof TFile) {
-    return byPath;
-  }
-
-  const normalized = pathOrName.toLowerCase();
-  const files = runtimePlugin.app.vault.getFiles();
-  const byName = files.find(file => file.name.toLowerCase() === normalized);
-  if (byName) return byName;
-
-  const withoutExt = normalized.replace(/\.[^.]+$/, "");
-  return files.find(file => file.basename.toLowerCase() === withoutExt) || null;
+  eq(other: PrefixWidget) { return this.rule.prefixType === other.rule.prefixType && this.rule.prefixValue === other.rule.prefixValue && JSON.stringify(this.rule.prefixValues) === JSON.stringify(other.rule.prefixValues) && this.rule.textColor === other.rule.textColor && this.rule.iconInheritColor === other.rule.iconInheritColor && this.rule.backgroundIncludesMarker === other.rule.backgroundIncludesMarker && this.rule.color === other.rule.color && this.rule.imageWidth === other.rule.imageWidth && this.rule.imageHeight === other.rule.imageHeight && this.app === other.app; }
+  ignoreEvent() { return true; }
 }

@@ -3,7 +3,9 @@ import { EDITOR_BODY_SELECTOR, READING_BODY_SELECTOR } from "./scope";
 export function scopeCustomCSS(css: string, ownerDocument: Document): string {
   // Parse in a detached document so unscoped rules never enter the app stylesheet.
   const parsingDocument = ownerDocument.implementation.createHTMLDocument("");
-  const style = parsingDocument.head.createEl("style", { text: css });
+  const style = parsingDocument.adoptNode(createEl("style"));
+  style.textContent = css;
+  parsingDocument.head.appendChild(style);
   return style.sheet ? scopeRules(style.sheet.cssRules) : "";
 }
 

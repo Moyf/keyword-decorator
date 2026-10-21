@@ -1,6 +1,6 @@
 import esbuild from "esbuild";
+import { builtinModules } from "node:module";
 import process from "process";
-import builtins from "builtin-modules";
 import { access, copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 
@@ -38,6 +38,7 @@ esbuild
       js: banner,
     },
     minify: prod ? true : false,
+    charset: "utf8",
     entryPoints: ["src/main.ts"],
     bundle: true,
     external: [
@@ -62,13 +63,12 @@ esbuild
       "@codemirror/search",
       "@codemirror/state",
       "@codemirror/stream-parser",
-      "@codemirror/text",
       "@codemirror/tooltip",
       "@codemirror/view",
       "@lezer/common",
       "@lezer/lr",
       "@lezer/highlight",
-      ...builtins,
+      ...builtinModules,
     ],
     format: "cjs",
     watch: !prod,

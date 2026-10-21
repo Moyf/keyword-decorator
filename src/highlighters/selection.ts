@@ -2,7 +2,6 @@
 import { SearchCursor } from "@codemirror/search";
 import { CharCategory, combineConfig, Compartment, Extension, Facet, Range } from "@codemirror/state";
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
-import { cloneDeep } from "lodash";
 import { debounce, Debouncer } from "obsidian";
 import { ignoredWords } from "src/settings/ignoredWords";
 
@@ -47,20 +46,20 @@ export const highlightCompartment = new Compartment();
 export function highlightSelectionMatches(options?: SelectionHighlightOptions): Extension {
   let ext: Extension[] = [matchHighlighter];
   if (options) {
-    ext.push(highlightConfig.of(cloneDeep(options)));
+    ext.push(highlightConfig.of({ ...options }));
   }
   return ext;
 }
 
 export function reconfigureSelectionHighlighter(options: SelectionHighlightOptions) {
-  return highlightCompartment.reconfigure(highlightConfig.of(cloneDeep(options)));
+  return highlightCompartment.reconfigure(highlightConfig.of({ ...options }));
 }
 
 const matchHighlighter = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
     highlightDelay: number;
-    delayedGetDeco: Debouncer<[view: EditorView]>;
+    delayedGetDeco: Debouncer<[view: EditorView], void>;
 
     constructor(view: EditorView) {
       this.updateDebouncer(view);
@@ -71,7 +70,7 @@ const matchHighlighter = ViewPlugin.fromClass(
       if (update.selectionSet || update.docChanged || update.viewportChanged) {
         // don't immediately remove decorations to prevent issues with things like link clicking
         // https://github.com/nothingislost/obsidian-dynamic-highlights/issues/58
-        setTimeout(() => {
+        window.setTimeout(() => {
           this.decorations = Decoration.none;
           update.view.update([]);
         }, 150);
@@ -99,7 +98,7 @@ const matchHighlighter = ViewPlugin.fromClass(
         sel = state.selection;
       if (sel.ranges.length > 1) return Decoration.none;
       let range = sel.main,
-        query,
+        query: string,
         check: ((char: string) => CharCategory) | null = null,
         matchType: string;
       if (range.empty) {

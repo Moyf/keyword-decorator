@@ -15,13 +15,13 @@ export const EDITOR_BODY_SELECTOR = `.${EDITOR_SCOPE_CLASS} .cm-content`;
 export const READING_BODY_SELECTOR =
   '.workspace-leaf-content[data-type="markdown"] .markdown-reading-view .markdown-preview-view';
 
-const excludedReadingSelector = [
+export const READING_EXCLUDED_SELECTOR = [
   "a", "code", "pre", "script", "style", "textarea", "input", "button", "select", "svg", "math",
   ".math", ".frontmatter", ".frontmatter-container", ".metadata-container", ".tag",
   ".internal-embed", ".markdown-embed", ".image-embed", ".footnote-ref", ".footnote-backref",
   ".modal", ".suggestion-container", ".popover", ".hover-popover",
   ".embedded-backlinks", ".backlink-pane", ".search-results-container", ".search-result",
-  ".keyword-decorator-reading-mark", ".keyword-decorator-prefix", ".cm-content",
+  ".keyword-decorator-reading-mark", ".keyword-decorator-reading-line", ".keyword-decorator-prefix", ".cm-content",
   '[contenteditable="true"]',
 ].join(", ");
 
@@ -34,11 +34,11 @@ export function canDecorateEditor(state: EditorState, decorateInSourceMode: bool
 }
 
 export function isReadingBody(element: HTMLElement): boolean {
-  return !!element.closest(READING_BODY_SELECTOR) && !element.closest(excludedReadingSelector);
+  return !!element.closest(READING_BODY_SELECTOR) && !element.closest(READING_EXCLUDED_SELECTOR);
 }
 
 export function isReadingText(element: HTMLElement): boolean {
-  return !element.closest(excludedReadingSelector);
+  return !element.closest(READING_EXCLUDED_SELECTOR);
 }
 
 export interface ExcludedRange {
@@ -81,4 +81,17 @@ export function overlapsExcludedRange(ranges: ExcludedRange[], from: number, to:
     if (range.to > from) return true;
   }
   return false;
+}
+
+export function editorTextRanges(excluded: ExcludedRange[], from: number, to: number): ExcludedRange[] {
+  const ranges: ExcludedRange[] = [];
+  let cursor = from;
+  for (const range of excluded) {
+    if (range.to <= cursor) continue;
+    if (range.from >= to) break;
+    if (range.from > cursor) ranges.push({ from: cursor, to: Math.min(range.from, to) });
+    cursor = Math.max(cursor, range.to);
+  }
+  if (cursor < to) ranges.push({ from: cursor, to });
+  return ranges;
 }

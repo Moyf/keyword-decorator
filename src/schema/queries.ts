@@ -28,17 +28,50 @@ export const queriesSchema = {
           type: "boolean",
         },
         prefixType: {
-          enum: ["none", "emoji", "icon"],
+          enum: ["none", "emoji", "icon", "image", "url", "svg"],
           type: "string",
         },
         prefixValue: {
           type: "string",
+        },
+        prefixValues: {
+          additionalProperties: { type: "string" },
+          type: "object",
         },
         css: {
           type: "string",
         },
         enabled: {
           type: "boolean",
+        },
+        groupId: {
+          type: "string",
+        },
+        iconInheritColor: {
+          type: "boolean",
+        },
+        backgroundIncludesMarker: {
+          type: "boolean",
+        },
+        styleWholeLine: {
+          type: "boolean",
+        },
+        hideText: {
+          type: "boolean",
+        },
+        imageWidth: {
+          maximum: 512,
+          minimum: 1,
+          type: "integer",
+        },
+        imageHeight: {
+          maximum: 512,
+          minimum: 1,
+          type: "integer",
+        },
+        queryMode: {
+          enum: ["keywords", "single", "multiple", "regex", "emoji-shortcodes"],
+          type: "string",
         },
         mark: {
           items: {

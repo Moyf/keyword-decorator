@@ -1,52 +1,96 @@
-import { access, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, join, parse, resolve } from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-const ROOT = process.cwd();
-const DIST_DIR = path.join(ROOT, "dist");
-const MANIFEST_PATH = path.join(ROOT, "manifest.json");
-const STYLES_PATH = path.join(ROOT, "styles.css");
-const MAIN_JS_PATH = path.join(DIST_DIR, "main.js");
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+const repositoryDirectory = resolve(scriptDirectory, "..");
+const distDirectory = join(repositoryDirectory, "dist");
+const manifestPath = join(distDirectory, "manifest.json");
 
-async function readManifest() {
-  const content = await readFile(MANIFEST_PATH, "utf8");
-  return JSON.parse(content);
+if (!existsSync(manifestPath)) {
+  throw new Error(`Build output is missing: ${manifestPath}. Run npm run build first.`);
 }
 
-async function fileExists(filePath) {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
+const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+const discoveredEnvironment = findEnvironmentValue("VAULT_PATH", repositoryDirectory);
+const processVaultPath = process.env.VAULT_PATH?.trim();
+const configuredVaultPath = processVaultPath || discoveredEnvironment?.value;
+
+if (!configuredVaultPath) {
+  throw new Error(
+    "VAULT_PATH is not set. Add it to the process environment or to a .env file in this repository or a parent directory.",
+  );
+}
+
+const relativeBase = processVaultPath ? process.cwd() : discoveredEnvironment.directory;
+const vaultPath = isAbsolute(configuredVaultPath)
+  ? configuredVaultPath
+  : resolve(relativeBase, configuredVaultPath);
+const obsidianDirectory = join(vaultPath, ".obsidian");
+
+if (!existsSync(vaultPath)) {
+  throw new Error(`Vault directory does not exist: ${vaultPath}`);
+}
+if (!existsSync(obsidianDirectory)) {
+  throw new Error(`Vault directory does not contain .obsidian: ${vaultPath}`);
+}
+
+const pluginDirectory = join(obsidianDirectory, "plugins", manifest.id);
+mkdirSync(pluginDirectory, { recursive: true });
+
+for (const filename of ["main.js", "manifest.json", "styles.css"]) {
+  const source = join(distDirectory, filename);
+  if (!existsSync(source)) {
+    if (filename !== "styles.css") {
+      throw new Error(`Build output is missing: ${source}`);
+    }
+    continue;
+  }
+  copyFileSync(source, join(pluginDirectory, filename));
+}
+
+const hotReloadMarker = join(pluginDirectory, ".hotreload");
+if (!existsSync(hotReloadMarker)) {
+  writeFileSync(hotReloadMarker, "");
+}
+
+console.log(`Copied ${manifest.id} to ${pluginDirectory}`);
+
+function findEnvironmentValue(key, startDirectory) {
+  let directory = resolve(startDirectory);
+  const root = parse(directory).root;
+
+  while (true) {
+    const environmentPath = join(directory, ".env");
+    if (existsSync(environmentPath)) {
+      const value = parseEnvironmentValue(readFileSync(environmentPath, "utf8"), key);
+      if (value) {
+        return { directory, value };
+      }
+    }
+    if (directory === root) {
+      return null;
+    }
+    directory = dirname(directory);
   }
 }
 
-async function copyIfExists(src, dst) {
-  if (await fileExists(src)) {
-    await copyFile(src, dst);
-    return true;
+function parseEnvironmentValue(contents, key) {
+  for (const line of contents.split(/\r?\n/u)) {
+    const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/u);
+    if (!match || match[1] !== key) {
+      continue;
+    }
+
+    const rawValue = match[2].trim();
+    if (
+      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
+      (rawValue.startsWith("'") && rawValue.endsWith("'"))
+    ) {
+      return rawValue.slice(1, -1).trim();
+    }
+    return rawValue.replace(/\s+#.*$/u, "").trim();
   }
-  return false;
+  return undefined;
 }
-
-async function main() {
-  if (!(await fileExists(MAIN_JS_PATH))) {
-    throw new Error("dist/main.js does not exist. Run npm run build first.");
-  }
-
-  const manifest = await readManifest();
-  const pluginDir = path.join("H:\\Docs\\Obsinote\\.obsidian\\plugins", manifest.id);
-
-  await mkdir(pluginDir, { recursive: true });
-  await copyFile(MAIN_JS_PATH, path.join(pluginDir, "main.js"));
-  await copyFile(MANIFEST_PATH, path.join(pluginDir, "manifest.json"));
-  await copyIfExists(STYLES_PATH, path.join(pluginDir, "styles.css"));
-  await writeFile(path.join(pluginDir, ".hotreload"), "", { flag: "a" });
-
-  console.log(`Copied plugin files to ${pluginDir}`);
-}
-
-main().catch(error => {
-  console.error(error);
-  process.exit(1);
-});
