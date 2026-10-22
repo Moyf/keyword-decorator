@@ -9,24 +9,48 @@ export function scopeCustomCSS(css: string, ownerDocument: Document): string {
   return style.sheet ? scopeRules(style.sheet.cssRules) : "";
 }
 
-function scopeRules(rules: CSSRuleList): string {
+function scopeRules(rules: CSSRuleList, nested = false): string {
   return Array.from(rules).map(rule => {
     if ("selectorText" in rule && "style" in rule) {
       const styleRule = rule as CSSStyleRule;
       const selectors = splitSelectors(styleRule.selectorText);
-      const scoped = [EDITOR_BODY_SELECTOR, READING_BODY_SELECTOR]
-        .reduce<string[]>((all, scope) => all.concat(selectors.map(selector => `${scope} ${selector}`)), []);
-      return `${scoped.join(", ")} { ${styleRule.style.cssText} }`;
+      const scoped = selectors.map(scopeSelector);
+      const children = styleRule.cssRules ? scopeRules(styleRule.cssRules, true) : "";
+      return `${scoped.join(", ")} { ${styleRule.style.cssText} ${children} }`;
     }
     // Keep conditional styles scoped, and ignore global directives such as
     // @import, @font-face and @keyframes that can affect the rest of the app.
     if (/^@(media|supports|container|layer)\b/.test(rule.cssText) && "cssRules" in rule) {
       const group = rule as CSSGroupingRule;
       const header = rule.cssText.slice(0, rule.cssText.indexOf("{"));
-      return `${header}{ ${scopeRules(group.cssRules)} }`;
+      return `${header}{ ${scopeRules(group.cssRules, nested)} }`;
     }
+    // Declarations after a nested rule have their own CSSOM node. They still
+    // inherit the enclosing scoped selector and must retain their source order.
+    if (nested && "style" in rule && !rule.cssText.trimStart().startsWith("@")) return rule.cssText;
     return "";
   }).join("\n");
+}
+
+/** Constrain the target while retaining theme/view ancestors and pseudo-elements. */
+export function scopeSelector(selector: string): string {
+  const targets = [EDITOR_BODY_SELECTOR, `${EDITOR_BODY_SELECTOR} *`, READING_BODY_SELECTOR, `${READING_BODY_SELECTOR} *`];
+  const constraint = `:where(${targets.join(", ")})`;
+  let depth = 0, quote = "", escaped = false;
+  for (let i = 0; i < selector.length; i++) {
+    const char = selector[i];
+    if (escaped) { escaped = false; continue; }
+    if (char === "\\") { escaped = true; continue; }
+    if (quote) { if (char === quote) quote = ""; continue; }
+    if (char === '"' || char === "'") { quote = char; continue; }
+    if (char === "(" || char === "[") depth++;
+    else if (char === ")" || char === "]") depth--;
+    else if (depth === 0 && char === ":" &&
+      (selector[i + 1] === ":" || /^:(before|after|first-line|first-letter)(?![\w-])/i.test(selector.slice(i)))) {
+      return selector.slice(0, i) + constraint + selector.slice(i);
+    }
+  }
+  return selector + constraint;
 }
 
 function splitSelectors(value: string): string[] {

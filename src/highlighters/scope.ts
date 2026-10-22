@@ -46,7 +46,7 @@ export interface ExcludedRange {
   to: number;
 }
 
-const excludedToken = /^(?:link|url|image|formatting|inline-code|code|comment|math|hashtag|tag|attribute|string|meta|footref|hmd-(?:barelink\d*|internal-link|embed|frontmatter|codeblock|indented-code|footnote|footref\d*|blockid|html|cdata))(?:-|$)/;
+const excludedToken = /^(?:link|url|image|formatting|inline-code|code|comment|math|hashtag|tag|attribute|string|meta|footref|hmd-(?:barelink\d*|internal-link|embed|frontmatter|codeblock|indented-code|math|footnote|footref\d*|blockid|html|cdata))(?:-|$)/;
 const excludedLine = /^(?:HyperMD-(?:codeblock|frontmatter|footnote)|hmd-(?:codeblock|frontmatter))(?:-|$)/;
 
 export function excludedEditorRanges(state: EditorState, from: number, to: number): ExcludedRange[] {

@@ -137,10 +137,10 @@ const staticHighlighter = ViewPlugin.fromClass(
         this.documentText = state.doc.toString();
       }
       const text = this.documentText;
-      for (const match of findMatchesInRanges(text, visibleRanges, this.compiled)) {
+      for (const match of findMatchesInRanges(text, visibleRanges, this.compiled,
+        match => !overlapsExcludedRange(excluded, match.from, match.to))) {
         const from = match.from;
         const to = match.to;
-        if (overlapsExcludedRange(excluded, from, to)) continue;
         const startLine = state.doc.lineAt(from);
         const endLine = state.doc.lineAt(Math.max(from, to - 1));
         const rule = match.rule as SearchQueries[string];

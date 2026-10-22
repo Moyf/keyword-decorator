@@ -59,7 +59,7 @@ export function compileRules(queries: Record<string, MatchRule>, queryOrder: str
   return compiled;
 }
 
-export function findMatches(text: string, rules: CompiledRule[]): TextMatch[] {
+export function findMatches(text: string, rules: CompiledRule[], accepts?: (match: TextMatch) => boolean): TextMatch[] {
   const candidates: TextMatch[] = [];
   for (const item of rules) {
     if (candidates.length >= MAX_CANDIDATES_PER_TEXT) break;
@@ -100,6 +100,8 @@ export function findMatches(text: string, rules: CompiledRule[]): TextMatch[] {
   candidates.sort((a, b) => a.priority - b.priority || a.from - b.from || b.to - a.to);
   const selected: TextMatch[] = [];
   for (const match of candidates) {
+    // Protected content cannot suppress an eligible lower-priority match.
+    if (accepts && !accepts(match)) continue;
     let low = 0;
     let high = selected.length;
     while (low < high) {
@@ -116,7 +118,7 @@ export function findMatches(text: string, rules: CompiledRule[]): TextMatch[] {
 }
 
 /** Match visible offsets against complete logical lines so clipped ranges cannot invent ^/$ boundaries. */
-export function findMatchesInRanges(text: string, ranges: readonly { from: number; to: number }[], rules: CompiledRule[]): TextMatch[] {
+export function findMatchesInRanges(text: string, ranges: readonly { from: number; to: number }[], rules: CompiledRule[], accepts?: (match: TextMatch) => boolean): TextMatch[] {
   const visible = ranges.filter(range => range.to > range.from);
   const scan = visible.map(range => {
     const from = range.from <= 0 ? 0 : text.lastIndexOf("\n", range.from - 1) + 1;
@@ -132,7 +134,8 @@ export function findMatchesInRanges(text: string, ranges: readonly { from: numbe
   }
   const found = new Map<string, TextMatch>();
   for (const range of merged) {
-    for (const match of findMatches(text.slice(range.from, range.to), rules)) {
+    for (const match of findMatches(text.slice(range.from, range.to), rules,
+      accepts ? match => accepts({ ...match, from: range.from + match.from, to: range.from + match.to }) : undefined)) {
       const from = range.from + match.from;
       const to = range.from + match.to;
       if (!visible.some(item => from < item.to && to > item.from)) continue;

@@ -35,7 +35,7 @@ void test("only Markdown file editors can opt into decorations", () => {
 for (const classes of [
   "link", "link strong", "url", "hmd-internal-link", "hmd-internal-link hmd-embed",
   "hmd-barelink", "hmd-barelink2", "hmd-footref2", "inline-code", "hmd-codeblock string",
-  "hmd-frontmatter", "math-inline", "math-block", "comment", "hashtag meta", "hmd-blockid",
+  "hmd-frontmatter", "math-inline", "math-block", "hmd-math", "comment", "hashtag meta", "hmd-blockid",
   "formatting-link", "tag", "attribute", "string",
 ]) {
   void test(`exclude inline ${classes}, including matches crossing into it`, () => {

@@ -38,6 +38,28 @@ void test("zero-length regex matches advance and are ignored", () => {
   assert.deepEqual(findMatches("aaaa", rules), []);
 });
 
+void test("protected matches do not suppress an eligible fallback rule", () => {
+  const text = "keyword [link](https://example.test)";
+  const rules = compileRules({
+    broad: { query: "keyword.*", regex: true },
+    fallback: { query: "keyword", regex: false },
+  }, ["broad", "fallback"]);
+  assert.deepEqual(findMatches(text, rules, match => match.to <= 7).map(match => match.ruleId), ["fallback"]);
+  const reading = "keyword \u0000";
+  assert.deepEqual(findMatches(reading, rules, match => !reading.slice(match.from, match.to).includes("\u0000"))
+    .map(match => match.ruleId), ["fallback"]);
+});
+
+void test("viewport eligibility uses absolute document offsets before priority selection", () => {
+  const text = "header\nkeyword [link](https://example.test)\nfooter";
+  const rules = compileRules({
+    broad: { query: "keyword.*", regex: true },
+    fallback: { query: "keyword", regex: false },
+  }, ["broad", "fallback"]);
+  const matches = findMatchesInRanges(text, [{ from: 9, to: 12 }], rules, match => match.from >= 7 && match.to <= 14);
+  assert.deepEqual(matches.map(match => [match.ruleId, match.from, match.to]), [["fallback", 7, 14]]);
+});
+
 void test("oversized regex patterns are skipped while bounded regexes compile", () => {
   const rules = compileRules({
     tooLong: { query: "a".repeat(MAX_REGEX_PATTERN_LENGTH + 1), regex: true, queryMode: "regex" },

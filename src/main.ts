@@ -304,7 +304,7 @@ export default class DynamicHighlightsPlugin extends Plugin {
       if (!isReadingText(block)) continue;
       const flat = flattenReadingBlock(block, blockSelector, excluded);
       if (!flat.text) continue;
-      const matches = findMatches(flat.text, compiledRules).filter(match => !flat.text.slice(match.from, match.to).includes("\u0000"));
+      const matches = findMatches(flat.text, compiledRules, match => !flat.text.slice(match.from, match.to).includes("\u0000"));
       if (!matches.length) continue;
       const wholeLines = new Map<number, TextMatch>();
       const hiddenMatches = new Set<string>();
