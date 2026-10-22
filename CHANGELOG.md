@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 ### 🚀 Added
 
 - **Source mode toggle**: Keep source mode undecorated by default, with an opt-in setting that preserves the same content exclusions as Live Preview.
+- **Rule multi-selection**: Ctrl/Cmd-click to toggle rules, Shift-click for a visible range, and drag the selected rules together within or between groups while preserving their relative order.
+- **Group transfer**: Export a single group with its rules and shared appearance, or append exported groups with collision-safe IDs. Import defaults to adding new content; existing rules, groups and the master switch stay unchanged in append mode.
 
 - **Emoji shortcodes**: Add a dedicated built-in group with enable and hide-text switches for 1,914 offline aliases, including `:happy:`. Keep ordinary match types limited to keywords and regex; preserve existing preset settings, priority, import/export and cursor recovery.
 
@@ -20,6 +22,9 @@ All notable changes to this project will be documented in this file.
 - **Image and icon markers**: Search Lucide icons and vault images, use HTTP/HTTPS image URLs or pasted SVG, adjust dimensions and hide matched text; source text remains editable and returns when an image fails.
 
 ### ⚡ Changed
+
+- **Compact settings layout**: Keep icon buttons square and search fields fully visible, switch crowded panes to single-column navigation, reduce name and preview spacing, and place save status beside import/export. New rules focus the Keyword field.
+- **Group navigation**: Preserve the list position when selecting groups, double-click names to fold or expand, and use insertion lines and target highlights while dragging. Keep required reorder scrolling smooth, honoring reduced motion.
 
 - **Matching and line styles**: Use one Keywords field for one or several lines, with legacy rule semantics preserved. Apply appearance to a whole logical line, and match regex `^` / `$` consistently in editing and reading views.
 
@@ -37,6 +42,8 @@ All notable changes to this project will be documented in this file.
 ### 🚀 新增
 
 - **源码视图开关**：源码模式默认保留原文，可通过「对源码视图添加装饰」单独开启，并沿用实时预览的内容排除规则。
+- **规则多选**：Ctrl/Cmd 点击切换选择，Shift 点击选择可见范围，支持整批拖动排序及跨分组移动，保留所选规则的相对顺序。
+- **分组导入导出**：可单独导出分组、组内规则及共享样式，导入时追加新分组并处理 ID 冲突。普通导入默认追加，保留现有规则、分组及总开关。
 
 - **Emoji 短码**：以特殊内置组提供 1,914 个离线别名（含 `:happy:`），独立控制整套启停及隐藏文字；普通匹配方式仅保留关键词和正则，兼容现有预设设置、优先级、导入导出及光标恢复。
 
@@ -46,6 +53,9 @@ All notable changes to this project will be documented in this file.
 - **图片与图标装饰**：支持搜索 Lucide 图标和库内图片、HTTP／HTTPS 图片链接、粘贴 SVG、尺寸设置与隐藏匹配文字；原文仍可编辑，图片失败时恢复显示。
 
 ### ⚡ 调整
+
+- **紧凑设置布局**：图标按钮保持正方形，搜索框完整显示，空间不足时切换单列；缩小名称字号、收紧预览间距，并将保存状态移到导入导出按钮旁。新建规则直接聚焦「关键词」。
+- **分组导航**：点击分组时保留列表位置，支持双击组名折叠和展开；拖动改用插入线和目标高亮，排序时必要的滚动采用平滑过渡，并尊重减少动态效果设置。
 
 - **匹配与整行样式**：统一使用「关键词」字段填写一行或多行，保留旧规则的匹配含义；支持整行外观，编辑和阅读视图中的正则 `^`／`$` 均按逻辑行匹配。
 

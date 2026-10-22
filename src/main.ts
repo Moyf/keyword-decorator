@@ -90,6 +90,12 @@ export default class DynamicHighlightsPlugin extends Plugin {
     await this.enqueueSave(this.settings);
   }
 
+  /** Keep rendered decorations in sync when an import is applied or rolled back. */
+  replaceSettings(settings: DynamicHighlightsSettings): void {
+    this.settings = settings;
+    this.applySettingsIfChanged();
+  }
+
   private async flushPendingSaves() {
     const pending = this.pendingSaves.splice(0);
     if (!pending.length) return;

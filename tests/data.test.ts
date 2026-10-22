@@ -15,6 +15,70 @@ void test("network image rules retain the URL and query string through export/im
   assert.equal(parsed.value?.queries.remote.hideText, true);
 });
 
+void test("single-group export includes only that group's ordered rules and shared appearance", () => {
+  const settings = normalizeSettings({ enabled: false, staticHighlighter: {
+    queries: { loose: { query: "loose", regex: false }, first: { query: "first", regex: false, groupId: "group", color: null }, second: { query: "second", regex: false, groupId: "group", italic: false }, other: { query: "other", regex: false, groupId: "other" } },
+    queryOrder: ["loose", "second", "first", "other"],
+    groups: { group: { name: "Exported", enabled: false, collapsed: true, style: { textColor: "#123456", italic: true } }, other: { name: "Other" } },
+    groupOrder: ["other", "group"], installedPresets: ["private-preset"],
+  } });
+  const original = JSON.stringify(settings);
+  const raw = JSON.parse(ExportModal.serializeGroup(settings, "group")) as Record<string, unknown>;
+  assert.deepEqual(Object.keys(raw), ["staticHighlighter"]);
+  const parsed = parseSettingsImport(raw);
+  assert.deepEqual(parsed.errors, []);
+  assert.deepEqual(parsed.value?.queryOrder, ["second", "first"]);
+  assert.deepEqual(Object.keys(parsed.value?.queries ?? {}), ["second", "first"]);
+  assert.deepEqual(parsed.value?.groupOrder, ["group"]);
+  assert.deepEqual(parsed.value?.groups, Object.assign(Object.create(null), { group: settings.staticHighlighter.groups?.group }));
+  assert.equal(parsed.value?.enabled, undefined);
+  assert.equal(parsed.value?.installedPresets, undefined);
+  assert.equal(JSON.stringify(settings), original);
+});
+
+void test("appending the same group repeatedly preserves current content and remaps rule/group references", () => {
+  const current = normalizeSettings({ enabled: false, staticHighlighter: {
+    decorateInSourceMode: true,
+    queries: { same: { query: "original", regex: false, groupId: "shared", color: null } }, queryOrder: ["same"],
+    groups: { shared: { name: "Original", style: { italic: true } } }, groupOrder: ["shared"],
+  } });
+  const original = JSON.stringify(current);
+  const parsed = parseSettingsImport({ enabled: true, staticHighlighter: {
+    decorateInSourceMode: false,
+    queries: { same: { query: "imported", regex: false, groupId: "shared", italic: false } }, queryOrder: ["same"],
+    groups: { shared: { name: "Imported", enabled: false, style: { color: "#abcd12" } } }, groupOrder: ["shared"],
+  } }).value!;
+  const once = applySettingsImport(parsed, current, "append"), twice = applySettingsImport(parsed, once, "append");
+  assert.equal(twice.enabled, false);
+  assert.equal(twice.staticHighlighter.decorateInSourceMode, true);
+  assert.deepEqual(twice.staticHighlighter.queries.same, current.staticHighlighter.queries.same);
+  assert.deepEqual(twice.staticHighlighter.groups?.shared, current.staticHighlighter.groups?.shared);
+  assert.equal(twice.staticHighlighter.queryOrder.length, 3);
+  const groupIds = twice.staticHighlighter.groupOrder ?? [];
+  assert.equal(groupIds.length, 3);
+  for (let i = 1; i < 3; i++) {
+    const ruleId = twice.staticHighlighter.queryOrder[i], groupId = groupIds[i];
+    assert.notEqual(ruleId, "same"); assert.notEqual(groupId, "shared");
+    assert.equal(twice.staticHighlighter.queries[ruleId].groupId, groupId);
+    assert.equal(twice.staticHighlighter.queries[ruleId].italic, false);
+    assert.equal(twice.staticHighlighter.groups?.[groupId].style?.color, "#abcd12");
+    assert.equal(twice.staticHighlighter.groups?.[groupId].enabled, false);
+  }
+  assert.equal(JSON.stringify(current), original);
+});
+
+void test("empty groups can be exported and appended without deleting existing rules", () => {
+  const current = normalizeSettings({ staticHighlighter: { queries: { a: { query: "a", regex: false } }, groups: { empty: { name: "Empty", collapsed: true } }, groupOrder: ["empty"] } });
+  const parsed = parseSettingsImport(JSON.parse(ExportModal.serializeGroup(current, "empty")) as unknown);
+  assert.deepEqual(parsed.errors, []);
+  const next = applySettingsImport(parsed.value!, current, "append");
+  assert.deepEqual(next.staticHighlighter.queryOrder, ["a"]);
+  const groupIds = next.staticHighlighter.groupOrder ?? [];
+  assert.equal(groupIds.length, 2);
+  assert.equal(next.staticHighlighter.groups?.[groupIds[1]].name, "Empty");
+  assert.throws(() => ExportModal.serializeGroup(current, "missing"), /no longer exists/);
+});
+
 void test("bulk image URLs become network image rules", () => {
   const url = "https://example.com/portrait.png?version=2";
   const result = parseBulkRules(`Portrait\tkeyword\t${url}`);

@@ -1,5 +1,28 @@
 # Validation
 
+## 2026-10-22 Responsive workbench and group transfer
+
+- 88 Node tests pass on the current main baseline, including multi-rule ordering, group-only export, repeated
+  append imports with colliding IDs, preservation of existing settings and empty groups.
+- Obsidian ESLint, Stylelint, TypeScript, production bundling and `git diff --check` pass.
+- The official PR scan passes with 0 errors and the 10 existing underline/Settings
+  `:has()` advisories. The PR is based on the current main branch; source-mode
+  decoration remains opt-in, including after an append import.
+- Browser checks use the installed Obsidian stylesheet and synthetic rules with an
+  Obsidian API shim: 399 layout/selection checks across English/Chinese, light/dark
+  themes, eight widths and two heights; 18 pointer/keyboard checks; and 20 group
+  interaction checks. These include Ctrl/Shift selection, grouped dragging,
+  cancellation, focused keyword entry, stable group clicks, double-click folding,
+  export/import dialogs, failed-save retry, new groups and deletion undo.
+- 19 isolated checks pass in Obsidian 1.15 with the Stillhaven theme, covering group
+  navigation, transfer dialogs, append retry, five toolbar widths, new-group rendering
+  and final asset installation. Both the live user's settings and the bytes of
+  `data.json` remain unchanged by installation and QA. Synthetic settings were used
+  for write-path checks; temporary DOM and modal instances were removed afterward.
+- The final build is installed in the current local vault and its settings page is
+  open. The plugin was reloaded without reloading the application. No mobile-device
+  testing or version publication was performed.
+
 ## 2026-10-21–22 Decoration boundaries and source mode
 
 - Synced with the merged rule workbench and Emoji shortcode changes. The existing groups, inheritance, ordering and shortcode preset remain supported.

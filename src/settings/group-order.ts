@@ -31,19 +31,31 @@ export function moveRuleToGroup(
   groupId?: string,
   beforeId?: string,
 ): boolean {
-  if (!Object.prototype.hasOwnProperty.call(config.queries, id)) return false;
+  return moveRulesToGroup(config, [id], groupId, beforeId);
+}
+
+/** Move a selection as one block in list order, including selections spanning groups. */
+export function moveRulesToGroup(
+  config: StaticHighlightOptions,
+  ids: readonly string[],
+  groupId?: string,
+  beforeId?: string,
+): boolean {
+  const selected = new Set(ids);
+  const movedIds = orderedRuleIds(config).filter(id => selected.has(id));
+  if (!movedIds.length || (beforeId && selected.has(beforeId))) return false;
 
   const targetGroupId = validGroupId(config, groupId);
-  const rule = config.queries[id];
-  const oldGroupId = rule.groupId;
+  const groupChanged = movedIds.some(id => config.queries[id].groupId !== targetGroupId);
   const previousOrder = [...config.queryOrder];
-  const nextOrder = orderedRuleIds(config).filter(ruleId => ruleId !== id);
+  const nextOrder = orderedRuleIds(config).filter(ruleId => !selected.has(ruleId));
 
-  if (targetGroupId === undefined) delete rule.groupId;
-  else rule.groupId = targetGroupId;
+  for (const id of movedIds) {
+    if (targetGroupId === undefined) delete config.queries[id].groupId;
+    else config.queries[id].groupId = targetGroupId;
+  }
 
   const validBeforeId = beforeId
-    && beforeId !== id
     && Object.prototype.hasOwnProperty.call(config.queries, beforeId)
     && ruleGroupId(config, beforeId) === targetGroupId
     ? beforeId
@@ -64,11 +76,11 @@ export function moveRuleToGroup(
     // An empty group is positioned by groupOrder; adding its first member keeps the rule list intact.
     insertAt = nextOrder.length;
   }
-  nextOrder.splice(insertAt, 0, id);
+  nextOrder.splice(insertAt, 0, ...movedIds);
   config.queryOrder.splice(0, config.queryOrder.length, ...nextOrder);
   syncGroupedQueryOrder(config);
 
-  return oldGroupId !== rule.groupId || previousOrder.length !== config.queryOrder.length
+  return groupChanged || previousOrder.length !== config.queryOrder.length
     || previousOrder.some((ruleId, index) => config.queryOrder[index] !== ruleId);
 }
 

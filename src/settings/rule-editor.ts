@@ -17,12 +17,11 @@ export function renderEditor(container: HTMLElement, app: App, rule: SearchQuery
   const effective = () => getEffectiveRule(rule, context.groups);
   const header = container.createDiv("kd-editor-toolbar");
   iconButton(header, "panel-right-close", localize("Collapse settings", "收起设置"), actions.back).buttonEl.addClass("kd-back");
-  header.createSpan({ cls: "kd-caption", text: t("name") });
+  if (rule.queryMode === "emoji-shortcodes") header.createSpan({ cls: "kd-caption", text: localize("Built-in conversion", "内置转换") });
   const buttons = header.createDiv("kd-actions");
   iconButton(buttons, "arrow-up", t("up"), () => actions.move(-1));
   iconButton(buttons, "arrow-down", t("down"), () => actions.move(1));
   if (rule.queryMode === "emoji-shortcodes") {
-    header.querySelector(".kd-caption")?.setText(localize("Built-in conversion", "内置转换"));
     iconButton(buttons, "trash-2", t("delete"), actions.remove).buttonEl.addClass("kd-delete");
     renderBuiltinEmojiEditor(container, app, rule, {
       effective, enabled: () => rule.enabled !== false,
@@ -54,7 +53,6 @@ export function renderEditor(container: HTMLElement, app: App, rule: SearchQuery
     });
   }
   const previewArea = container.createDiv("kd-preview-area");
-  previewArea.createSpan({ cls: "kd-eyebrow", text: t("preview") });
   const preview = previewArea.createDiv("kd-live-preview");
   if (context.ruleId) preview.addClass(`kd-rule-${context.ruleId}`.replace(/[^a-zA-Z0-9_-]/g, "-"));
   const change = () => { renderPreview(preview, app, effective()); actions.changed(); };
@@ -69,7 +67,7 @@ export function renderEditor(container: HTMLElement, app: App, rule: SearchQuery
   const query = new TextAreaComponent(queryField.wrap).setValue(visibleQuery).onChange(value => {
     rule.query = value; rule.queryMode = mode.value as QueryMode; rule.regex = mode.value === "regex"; validate(); change();
   });
-  query.inputEl.id = queryField.id; query.inputEl.rows = 2; query.inputEl.spellcheck = false;
+  query.inputEl.id = queryField.id; query.inputEl.addClass("kd-query-input"); query.inputEl.rows = 2; query.inputEl.spellcheck = false;
   const hint = queryField.wrap.createDiv("kd-caption"), error = queryField.wrap.createDiv({ cls: "kd-error", attr: { role: "status" } });
   function validate() {
     let valid = true;

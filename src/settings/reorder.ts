@@ -78,16 +78,16 @@ export function attachReorder(list: HTMLElement, enabled: boolean, commit: (ids:
 }
 
 export type GroupedReorderAction =
-  | { type: "rule"; id: string; groupId?: string; beforeId?: string }
+  | { type: "rule"; id: string; ids?: string[]; groupId?: string; beforeId?: string }
   | { type: "group"; id: string; beforeGroupId?: string };
 
 /** Pointer sorting for grouped rule lists. The DOM is only used to calculate a drop; it is never reordered here. */
-export function attachGroupedReorder(list: HTMLElement, enabled: boolean, commit: (action: GroupedReorderAction) => void, keymap: Keymap): () => void {
+export function attachGroupedReorder(list: HTMLElement, enabled: boolean, commit: (action: GroupedReorderAction) => void, keymap: Keymap, selectedIds: (id: string) => string[] = id => [id]): () => void {
   const doc = list.ownerDocument;
   if (!doc.defaultView) return () => undefined;
   const win = doc.defaultView;
 
-  type Drag = { kind: "rule" | "group"; el: HTMLElement; id: string };
+  type Drag = { kind: "rule" | "group"; el: HTMLElement; id: string; ids: string[]; elements: HTMLElement[] };
   let drag: Drag | null = null;
   let pointer = -1;
   let startX = 0;
@@ -126,16 +126,16 @@ export function attachGroupedReorder(list: HTMLElement, enabled: boolean, commit
 
     if (drag.kind === "rule") {
       const targetRow = point.closest<HTMLElement>(".kd-rule");
-      if (targetRow === drag.el) return;
+      if (targetRow && drag.elements.includes(targetRow)) return;
       if (targetRow && list.contains(targetRow)) {
         const targetGroup = targetRow.closest<HTMLElement>(".kd-group");
         if (!targetGroup) return;
-        const targetRows = rowsIn(targetGroup).filter(row => row !== drag!.el);
+        const targetRows = rowsIn(targetGroup).filter(row => !drag!.elements.includes(row));
         const index = targetRows.indexOf(targetRow);
         const before = y < targetRow.getBoundingClientRect().top + targetRow.getBoundingClientRect().height / 2;
         const beforeId = before ? targetRow.dataset.id : targetRows[index + 1]?.dataset.id;
         mark(targetRow, before ? "kd-drop-before" : "kd-drop-after", {
-          type: "rule", id: drag.id, groupId: groupId(targetGroup), beforeId,
+          type: "rule", id: drag.id, ids: drag.ids, groupId: groupId(targetGroup), beforeId,
         });
         return;
       }
@@ -144,7 +144,7 @@ export function attachGroupedReorder(list: HTMLElement, enabled: boolean, commit
       if (targetGroup && list.contains(targetGroup)) {
         const items = targetGroup.querySelector<HTMLElement>(":scope > .kd-group-items");
         if (items && (point.closest(".kd-group-header") || items.contains(point))) {
-          mark(items.hasClass("is-collapsed") ? targetGroup : items, "kd-drop-inside", { type: "rule", id: drag.id, groupId: groupId(targetGroup) });
+          mark(targetGroup.querySelector<HTMLElement>(":scope > .kd-group-header") ?? items, "kd-drop-inside", { type: "rule", id: drag.id, ids: drag.ids, groupId: groupId(targetGroup) });
         }
       }
       return;
@@ -178,11 +178,11 @@ export function attachGroupedReorder(list: HTMLElement, enabled: boolean, commit
   function finish(cancel: boolean) {
     if (!drag) return;
     const completedAction = !cancel && dragging ? action : null;
-    const dragged = drag.el;
+    const dragged = drag.elements;
     const activePointer = pointer;
     drag = null; pointer = -1; dragging = false;
     clearMarks();
-    dragged.removeClass("is-dragging");
+    for (const el of dragged) el.removeClass("is-dragging");
     list.removeClass("is-sorting");
     if (list.hasPointerCapture(activePointer)) list.releasePointerCapture(activePointer);
     win.cancelAnimationFrame(frame);
@@ -208,7 +208,7 @@ export function attachGroupedReorder(list: HTMLElement, enabled: boolean, commit
     event.preventDefault();
     if (!dragging) {
       dragging = true;
-      drag.el.addClass("is-dragging");
+      for (const el of drag.elements) el.addClass("is-dragging");
       list.addClass("is-sorting");
       frame = win.requestAnimationFrame(scroll);
     }
@@ -242,9 +242,11 @@ export function attachGroupedReorder(list: HTMLElement, enabled: boolean, commit
     const row = handle.closest<HTMLElement>(".kd-rule");
     const group = handle.closest<HTMLElement>(".kd-group");
     if (row) {
-      drag = { kind: "rule", el: row, id: row.dataset.id ?? "" };
+      const id = row.dataset.id ?? "", ids = selectedIds(id);
+      const elements = Array.from(list.querySelectorAll<HTMLElement>(".kd-rule")).filter(el => ids.includes(el.dataset.id ?? ""));
+      drag = { kind: "rule", el: row, id, ids, elements };
     } else if (group && handle.matches(".kd-group-grip") && groupId(group)) {
-      drag = { kind: "group", el: group, id: groupId(group)! };
+      drag = { kind: "group", el: group, id: groupId(group)!, ids: [], elements: [group] };
     } else return;
 
     event.preventDefault();

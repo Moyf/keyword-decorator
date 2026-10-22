@@ -2,6 +2,10 @@ import { App, ButtonComponent, Modal, Setting, TextAreaComponent } from "obsidia
 import { localize } from "../i18n";
 import type DynamicHighlightsPlugin from "../main";
 import { DynamicHighlightsSettings, MAX_IMAGE_DIMENSION, normalizeSearchQuery, normalizeSettings, PrefixType, RuleGroup, SearchQueries } from "./settings";
+import { appendBulkRules } from "./bulk";
+import { syncGroupedQueryOrder } from "./groups";
+
+export type ImportBehavior = "append" | "merge" | "replace";
 
 export interface ParsedSettingsImport {
   queries: SearchQueries;
@@ -201,10 +205,16 @@ function parseGroupOrder(value: unknown, groups: Record<string, RuleGroup> | und
   return result;
 }
 
-export function applySettingsImport(value: ParsedSettingsImport, current: DynamicHighlightsSettings, mode: "merge" | "replace"): DynamicHighlightsSettings {
+export function applySettingsImport(value: ParsedSettingsImport, current: DynamicHighlightsSettings, mode: ImportBehavior): DynamicHighlightsSettings {
   // A replaced/deleted preset must not come back after the next reload.
   const installedPresets = [...new Set([...(current.staticHighlighter.installedPresets ?? []), ...(value.installedPresets ?? [])])];
   const decorateInSourceMode = value.decorateInSourceMode ?? current.staticHighlighter.decorateInSourceMode ?? false;
+  if (mode === "append") {
+    const next = appendBulkRules(current, value.queries, value.queryOrder, value.groups, value.groupOrder);
+    next.staticHighlighter.installedPresets = installedPresets;
+    syncGroupedQueryOrder(next.staticHighlighter);
+    return next;
+  }
   if (mode === "replace") {
     const normalized = normalizeSettings({
       enabled: value.enabled ?? current.enabled,
@@ -231,17 +241,19 @@ export function applySettingsImport(value: ParsedSettingsImport, current: Dynami
 export class ImportModal extends Modal {
   private parsed?: ParsedSettingsImport;
   private errors: string[] = [];
-  private mode: "merge" | "replace" = "merge";
+  private mode: ImportBehavior = "append";
   private allowEmptyReplace = false;
   private revision = 0;
 
-  constructor(app: App, private readonly plugin: DynamicHighlightsPlugin) { super(app); }
+  constructor(app: App, private readonly plugin: DynamicHighlightsPlugin, private readonly groupsOnly = false) { super(app); }
 
   onOpen() {
     const { contentEl, modalEl } = this;
-    this.setTitle(localize("Import rules", "导入规则"));
+    this.setTitle(this.groupsOnly ? localize("Import groups", "导入分组") : localize("Import rules", "导入规则"));
     modalEl.addClass("modal-dynamic-highlights");
-    contentEl.createEl("p", { cls: "kd-dialog-description", text: localize("Paste an export or choose a JSON file. Review the result before importing.", "粘贴导出内容或选择 JSON 文件，确认下方预览后导入。") });
+    contentEl.createEl("p", { cls: "kd-dialog-description", text: this.groupsOnly
+      ? localize("Add exported groups and their rules. Existing groups stay unchanged.", "追加导出的分组及组内规则，保留现有分组。")
+      : localize("Paste an export or choose a JSON file. Review the result before importing.", "粘贴导出内容或选择 JSON 文件，确认下方预览后导入。") });
     const body = contentEl.createDiv("kd-dialog-body");
     const source = body.createDiv("kd-dialog-source");
     const fileInput = body.createEl("input", { cls: "kd-dialog-file-input", type: "file", attr: { accept: ".json,application/json", tabindex: "-1" } });
@@ -258,12 +270,14 @@ export class ImportModal extends Modal {
     let resetEmptyConfirmation = () => {};
     const modeSetting = new Setting(options).setName(localize("Import behavior", "导入方式"));
     modeSetting.settingEl.addClass("kd-dialog-option");
+    modeSetting.settingEl.toggleClass("is-hidden", this.groupsOnly);
     modeSetting.addDropdown(dropdown => dropdown
-      .addOption("merge", localize("Merge rules", "合并规则"))
+      .addOption("append", localize("Append as new rules and groups", "追加为新规则和分组"))
+      .addOption("merge", localize("Update matching IDs", "更新相同 ID 的规则和分组"))
       .addOption("replace", localize("Replace all rules", "替换全部规则"))
       .setValue(this.mode)
       .onChange(value => {
-        this.mode = value as "merge" | "replace";
+        this.mode = value as ImportBehavior;
         this.allowEmptyReplace = false; resetEmptyConfirmation(); refresh();
       }));
     const emptyConfirmation = new Setting(options)
@@ -281,7 +295,7 @@ export class ImportModal extends Modal {
     const updateApply = () => {
       const empty = hasEmptyReplacement(this.parsed, this.mode);
       applyButton.setDisabled(applying || readingFile || !this.parsed || !!this.errors.length || (empty && !this.allowEmptyReplace));
-      applyButton.setButtonText(applying ? localize("Importing…", "正在导入…") : empty ? localize("Clear all rules", "清空全部规则") : localize("Import rules", "导入规则"));
+      applyButton.setButtonText(applying ? localize("Importing…", "正在导入…") : empty ? localize("Clear all rules", "清空全部规则") : this.groupsOnly ? localize("Add groups", "追加分组") : localize("Import rules", "导入规则"));
       textarea.inputEl.disabled = applying; chooseFile.setDisabled(applying || readingFile);
     };
     const refresh = () => {
@@ -291,18 +305,22 @@ export class ImportModal extends Modal {
         try {
           const parsed = parseSettingsImport(JSON.parse(input));
           this.parsed = parsed.value; this.errors = parsed.errors;
+          if (this.groupsOnly && this.parsed && (!Object.keys(this.parsed.groups ?? {}).length || Object.values(this.parsed.queries).some(rule => !rule.groupId))) {
+            this.errors.push(localize("Choose a group export containing groups and their rules.", "请选择包含分组及组内规则的导出文件。"));
+          }
         } catch {
           this.errors = [localize("Invalid JSON. Check the brackets, quotes and commas.", "JSON 格式无效，请检查括号、引号和逗号。")];
         }
       }
-      modeSetting.setDesc(this.mode === "merge"
+      modeSetting.setDesc(this.mode === "append"
+        ? localize("Add new rules and groups. Existing content and the master switch stay unchanged.", "追加新规则和分组，保留现有内容及总开关状态。") : this.mode === "merge"
         ? localize("Keep current rules. Imported rules with the same ID will update them.", "保留现有规则；导入内容中相同 ID 的规则会更新。")
         : localize("Replace the current rule list with the imported rules.", "用导入的规则替换当前规则列表。"));
       emptyConfirmation.settingEl.toggleClass("is-hidden", !hasEmptyReplacement(this.parsed, this.mode));
       preview.toggleClass("is-error", !!this.errors.length);
       textarea.inputEl.setAttribute("aria-invalid", String(!!this.errors.length));
       preview.setText(this.errors.length ? this.errors.join("\n") : this.parsed
-        ? localize(`${this.parsed.queryOrder.length} rules ready to ${this.mode === "merge" ? "merge" : "replace the current list"}.`, `已读取 ${this.parsed.queryOrder.length} 条规则，将${this.mode === "merge" ? "合并到" : "替换"}当前列表。`)
+        ? localize(`${this.parsed.queryOrder.length} rules, ${Object.keys(this.parsed.groups ?? {}).length} groups · ${this.mode === "append" ? "add as new content" : this.mode === "merge" ? "update matching IDs" : "replace the current list"}.`, `${this.parsed.queryOrder.length} 条规则，${Object.keys(this.parsed.groups ?? {}).length} 个分组 · ${this.mode === "append" ? "追加为新内容" : this.mode === "merge" ? "更新相同 ID" : "替换当前列表"}。`)
         : localize("A summary will appear here when you add JSON.", "粘贴或选择文件后，这里会显示导入摘要。"));
       updateApply();
     };
@@ -335,10 +353,13 @@ export class ImportModal extends Modal {
       refresh();
       if (!this.parsed || this.errors.length || (hasEmptyReplacement(this.parsed, this.mode) && !this.allowEmptyReplace)) return;
       applying = true; cancel.setDisabled(true); updateApply();
-      this.plugin.settings = applySettingsImport(this.parsed, this.plugin.settings, this.mode);
+      const previous = this.plugin.settings;
+      const next = applySettingsImport(this.parsed, previous, this.groupsOnly ? "append" : this.mode);
+      this.plugin.replaceSettings(next);
       void this.plugin.saveSettings().then(() => {
         this.plugin.settingsTab.refresh(); this.close();
       }).catch(error => {
+        if (this.plugin.settings === next) this.plugin.replaceSettings(previous);
         if (!body.isConnected) return;
         applying = false; cancel.setDisabled(false); updateApply();
         preview.addClass("is-error");
