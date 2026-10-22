@@ -12,7 +12,7 @@ export class ExportModal extends Modal {
   config: SearchQueries;
   settings?: DynamicHighlightsSettings;
 
-  constructor(app: App, plugin: DynamicHighlightsPlugin, section: string, config: SearchQueries, settings?: DynamicHighlightsSettings) {
+  constructor(app: App, plugin: DynamicHighlightsPlugin, section: string, config: SearchQueries, settings?: DynamicHighlightsSettings, private readonly groupId?: string) {
     super(app);
     this.plugin = plugin;
     this.config = config;
@@ -39,16 +39,30 @@ export class ExportModal extends Modal {
     }, null, 2);
   }
 
+  /** A group package includes its members and inheritance, without global settings or other groups. */
+  static serializeGroup(settings: DynamicHighlightsSettings, groupId: string): string {
+    const config = settings.staticHighlighter, group = config.groups?.[groupId];
+    if (!group) throw new Error("Group no longer exists.");
+    const queryOrder = [...new Set([...config.queryOrder, ...Object.keys(config.queries)])]
+      .filter(id => config.queries[id]?.groupId === groupId);
+    return JSON.stringify({ staticHighlighter: {
+      queries: Object.fromEntries(queryOrder.map(id => [id, config.queries[id]])),
+      queryOrder,
+      groups: { [groupId]: group },
+      groupOrder: [groupId],
+    } }, null, 2);
+  }
+
   onOpen() {
     const { contentEl, modalEl } = this;
-    this.setTitle(t("export"));
+    this.setTitle(this.groupId ? localize("Export group", "导出分组") : t("export"));
     modalEl.addClass("modal-dynamic-highlights");
     contentEl.createEl("p", {
       cls: "kd-dialog-description",
-      text: localize("Export these rules as JSON.", "将这些规则导出为 JSON。"),
+      text: this.groupId ? localize(`Export “${this.section}” with its rules and shared appearance.`, `导出「${this.section}」的规则及共享样式。`) : localize("Export these rules as JSON.", "将这些规则导出为 JSON。"),
     });
     const body = contentEl.createDiv({ cls: "kd-dialog-body" });
-    const output = ExportModal.serialize(this.config, this.settings);
+    const output = this.groupId && this.settings ? ExportModal.serializeGroup(this.settings, this.groupId) : ExportModal.serialize(this.config, this.settings);
     const textarea = new TextAreaComponent(body);
     textarea.inputEl.addClass("kd-dialog-input");
     textarea.inputEl.setAttribute("aria-label", localize("Exported rules JSON", "导出规则 JSON"));
@@ -83,7 +97,7 @@ export class ExportModal extends Modal {
       cls: "kd-dialog-download",
       text: localize("Download", "下载"),
       attr: {
-        download: "keyword-decorator.json",
+        download: this.groupId ? `keyword-decorator-${this.section.replace(/[<>:"/\\|?*]/g, "-").slice(0, 80) || "group"}.json` : "keyword-decorator.json",
         href: `data:application/json;charset=utf-8,${encodeURIComponent(output)}`,
       },
     });

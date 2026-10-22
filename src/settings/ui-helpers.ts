@@ -11,7 +11,9 @@ export function field(parent: HTMLElement, text: string) {
   return { wrap, id };
 }
 export function iconButton(parent: HTMLElement, icon: string, label: string, action: () => void) {
-  return new ButtonComponent(parent).setIcon(icon).setTooltip(label).onClick(action);
+  const button = new ButtonComponent(parent).setIcon(icon).setTooltip(label).onClick(action);
+  button.buttonEl.addClass("kd-icon-button");
+  return button;
 }
 export function ruleLabel(rule: SearchQuery) { return rule.name?.trim() || rule.query.trim().split(/[\n,]/)[0] || t("unnamed"); }
 export function sampleText(rule: SearchQuery) {

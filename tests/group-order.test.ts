@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { moveRuleGroup, moveRuleToGroup } from "../src/settings/group-order";
+import { moveRuleGroup, moveRuleToGroup, moveRulesToGroup } from "../src/settings/group-order";
 import type { StaticHighlightOptions } from "../src/settings/settings";
 
 function makeConfig(): StaticHighlightOptions {
@@ -82,4 +82,42 @@ void test("moving a group repairs malformed group order without losing any group
   assert.deepEqual(new Set(config.queryOrder), new Set(Object.keys(config.queries)));
   assert.deepEqual(config.queries.c.prefixValues, { emoji: "✨" });
   assert.equal(config.queries.d.backgroundIncludesMarker, true);
+});
+
+void test("multi-rule moves keep list order across groups and preserve explicit rule appearance", () => {
+  const config = makeConfig();
+  const original = structuredClone(config.queries);
+  assert.equal(moveRulesToGroup(config, ["b", "a", "a", "missing"], "two", "d"), true);
+  assert.deepEqual(config.queryOrder, ["loose", "c", "a", "b", "d"]);
+  assert.deepEqual(config.queries.a, { ...original.a, groupId: "two" });
+  assert.deepEqual(config.queries.b, original.b);
+  assert.deepEqual(config.queries.c, original.c);
+});
+
+void test("multi-rule moves support empty groups and ungrouping the whole block", () => {
+  const config = makeConfig();
+  assert.equal(moveRulesToGroup(config, ["c", "a"], "empty"), true);
+  assert.deepEqual(config.queryOrder, ["loose", "b", "d", "a", "c"]);
+  assert.equal(config.queries.a.groupId, "empty");
+  assert.equal(config.queries.c.groupId, "empty");
+  assert.equal(moveRulesToGroup(config, ["c", "a"], undefined, "loose"), true);
+  assert.deepEqual(config.queryOrder, ["a", "c", "loose", "b", "d"]);
+  assert.equal(config.queries.a.groupId, undefined);
+  assert.equal(config.queries.c.groupId, undefined);
+});
+
+void test("dropping onto the selection, an unchanged block or missing rules is a no-op", () => {
+  const config = makeConfig(), original = structuredClone(config);
+  assert.equal(moveRulesToGroup(config, ["a", "c"], "one"), false);
+  assert.equal(moveRulesToGroup(config, ["a", "c"], "two", "c"), false);
+  assert.equal(moveRulesToGroup(config, ["missing"], "two"), false);
+  assert.equal(moveRulesToGroup(config, [], "two"), false);
+  assert.deepEqual(config, original);
+});
+
+void test("filtered nonadjacent selections keep unselected rules in their original relative order", () => {
+  const config = makeConfig();
+  assert.equal(moveRulesToGroup(config, ["a", "d"], "one", "c"), true);
+  assert.deepEqual(config.queryOrder, ["loose", "a", "d", "c", "b"]);
+  assert.deepEqual(config.queryOrder.filter(id => !["a", "d"].includes(id)), ["loose", "c", "b"]);
 });
