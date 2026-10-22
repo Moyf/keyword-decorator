@@ -34,6 +34,7 @@ export class ExportModal extends Modal {
         groups: settings.staticHighlighter.groups ?? {},
         groupOrder: settings.staticHighlighter.groupOrder ?? [],
         installedPresets: settings.staticHighlighter.installedPresets ?? [],
+        decorateInSourceMode: settings.staticHighlighter.decorateInSourceMode === true,
       },
     }, null, 2);
   }

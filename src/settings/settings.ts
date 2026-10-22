@@ -49,6 +49,7 @@ export interface SearchQueries {
 export interface StaticHighlightOptions {
   queries: SearchQueries;
   queryOrder: string[];
+  decorateInSourceMode?: boolean;
   groups?: Record<string, RuleGroup>;
   groupOrder?: string[];
   installedPresets?: string[];
@@ -75,6 +76,7 @@ export const DEFAULT_SETTINGS: DynamicHighlightsSettings = {
   staticHighlighter: {
     queries: {},
     queryOrder: [],
+    decorateInSourceMode: false,
     groups: {},
     groupOrder: [],
   },
@@ -216,6 +218,7 @@ export function normalizeSettings(raw: unknown): DynamicHighlightsSettings {
     },
     staticHighlighter: {
       ...staticOptions, queries, queryOrder, groups, groupOrder,
+      decorateInSourceMode: staticOptions.decorateInSourceMode === true,
       installedPresets: Array.isArray(staticOptions.installedPresets)
         ? [...new Set(staticOptions.installedPresets.filter((id): id is string => typeof id === "string"))]
         : [],

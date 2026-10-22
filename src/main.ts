@@ -1,5 +1,5 @@
 import { Extension } from "@codemirror/state";
-import { MarkdownView, Plugin, TAbstractFile, TFile } from "obsidian";
+import { MarkdownRenderChild, MarkdownView, Plugin, TAbstractFile, TFile } from "obsidian";
 import { buildStyles, staticHighlighterExtension } from "./highlighters/static";
 import { compileRules, CompiledRule, findMatches, TextMatch } from "./highlighters/matching";
 import addIcons from "./icons/customIcons";
@@ -8,6 +8,8 @@ import { DynamicHighlightsSettings, normalizeSettings } from "./settings/setting
 import { SettingTab } from "./settings/ui";
 import { getEffectiveQueries } from "./settings/groups";
 import { installDefaultPresets } from "./settings/presets";
+import { isReadingBody, isReadingText, READING_EXCLUDED_SELECTOR } from "./highlighters/scope";
+import { scopeCustomCSS } from "./highlighters/custom-css";
 
 interface CustomCSS { css: string; enabled: boolean }
 interface PendingSave { resolve: () => void; reject: (error: unknown) => void }
@@ -43,7 +45,17 @@ export default class DynamicHighlightsPlugin extends Plugin {
     this.registerEditorExtension(this.extensions);
     this.initCSS();
     this.registerEvent(this.app.workspace.on("window-open", () => this.syncCustomCSS()));
-    this.registerMarkdownPostProcessor(el => this.decorateReadingView(el));
+    this.registerMarkdownPostProcessor((el, ctx) => {
+      if (el.isConnected) { this.decorateReadingView(el); return; }
+      const child = new MarkdownRenderChild(el);
+      child.onload = () => {
+        const win = el.ownerDocument.defaultView;
+        if (!win) return;
+        const frame = win.requestAnimationFrame(() => this.decorateReadingView(el));
+        child.register(() => win.cancelAnimationFrame(frame));
+      };
+      ctx.addChild(child);
+    });
     this.lastAppliedSettings = this.runtimeSignature();
     this.registerEvent(this.app.vault.on("create", file => this.onVaultFileChanged(file)));
     this.registerEvent(this.app.vault.on("delete", file => this.onVaultFileChanged(file)));
@@ -101,6 +113,7 @@ export default class DynamicHighlightsPlugin extends Plugin {
     const queries = getEffectiveQueries(this.settings.staticHighlighter);
     return JSON.stringify({
       enabled: this.settings.enabled,
+      decorateInSourceMode: this.settings.staticHighlighter.decorateInSourceMode,
       order: this.settings.staticHighlighter.queryOrder,
       queries: Object.fromEntries(Object.entries(queries).map(([id, rule]) => [id, {
         ...rule,
@@ -166,7 +179,7 @@ export default class DynamicHighlightsPlugin extends Plugin {
     this.settingsDocuments.set(doc, (this.settingsDocuments.get(doc) || 0) + 1);
     if (doc.head && doc.defaultView && !doc.defaultView.closed) {
       const style = this.ensureDocumentStyle(doc);
-      style.textContent = this.lastCustomCSS;
+      style.textContent = scopeCustomCSS(this.lastCustomCSS, doc);
     }
     return () => {
       const count = this.settingsDocuments.get(doc) || 0;
@@ -212,7 +225,7 @@ export default class DynamicHighlightsPlugin extends Plugin {
     const css = this.getCustomCSS();
     this.lastCustomCSS = css;
     for (const doc of this.getDocuments()) {
-      this.ensureDocumentStyle(doc).textContent = css;
+      this.ensureDocumentStyle(doc).textContent = scopeCustomCSS(css, doc);
     }
     this.customCSSInitialized = true;
     this.app.workspace.trigger("css-change");
@@ -279,17 +292,19 @@ export default class DynamicHighlightsPlugin extends Plugin {
   }
 
   decorateReadingView(rootEl: HTMLElement) {
+    if (!isReadingBody(rootEl)) return;
     const compiledRules = this.getReadingRules();
     if (!compiledRules.length) return;
     const doc = rootEl.ownerDocument;
     const blockSelector = "p,h1,h2,h3,h4,h5,h6,li,blockquote,td,th";
     const blocks = Array.from(rootEl.querySelectorAll<HTMLElement>(blockSelector));
     if (rootEl.matches(blockSelector)) blocks.unshift(rootEl);
-    const excluded = "pre,code,.math,.frontmatter,.internal-embed,.cm-content,.tag,.keyword-decorator-reading-mark,.keyword-decorator-reading-line";
+    const excluded = READING_EXCLUDED_SELECTOR;
     for (const block of blocks) {
+      if (!isReadingText(block)) continue;
       const flat = flattenReadingBlock(block, blockSelector, excluded);
       if (!flat.text) continue;
-      const matches = findMatches(flat.text, compiledRules);
+      const matches = findMatches(flat.text, compiledRules, match => !flat.text.slice(match.from, match.to).includes("\u0000"));
       if (!matches.length) continue;
       const wholeLines = new Map<number, TextMatch>();
       const hiddenMatches = new Set<string>();

@@ -1,4 +1,4 @@
-import { App, ButtonComponent, Notice, PluginSettingTab, SettingDefinitionItem, TextComponent, ToggleComponent, setIcon } from "obsidian";
+import { App, ButtonComponent, Notice, PluginSettingTab, Setting, SettingDefinitionItem, TextComponent, ToggleComponent, setIcon } from "obsidian";
 import { attachGroupedReorder, GroupedReorderAction } from "./reorder";
 import DynamicHighlightsPlugin from "../main";
 import { localize, t } from "../i18n";
@@ -65,6 +65,9 @@ export class SettingTab extends PluginSettingTab {
     const actions = toolbar.createDiv("kd-actions");
     iconButton(actions, "download", t("import"), () => new ImportModal(this.app, this.plugin).open());
     iconButton(actions, "upload", t("export"), () => new ExportModal(this.app, this.plugin, "All", this.plugin.settings.staticHighlighter.queries, this.plugin.settings).open());
+    new Setting(root).setName(t("sourceMode")).setDesc(t("sourceModeDesc"))
+      .addToggle(toggle => toggle.setValue(this.plugin.settings.staticHighlighter.decorateInSourceMode === true)
+        .onChange(value => { this.plugin.settings.staticHighlighter.decorateInSourceMode = value; this.changed(); }));
     this.status = root.createDiv({ cls: "kd-save-status", text: t("autosave"), attr: { role: "status", "aria-live": "polite" } });
     root.createDiv({ cls: "kd-paused-banner", text: `${t("paused")} · ${t("pausedDesc")}` });
     this.layout = root.createDiv("kd-layout");

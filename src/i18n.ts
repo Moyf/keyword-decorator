@@ -2,6 +2,7 @@ import { getLanguage, requireApiVersion } from "obsidian";
 
 const en = {
   enabled: "Enable decorations", enabledDesc: "Apply rules in the editor and reading view.",
+  sourceMode: "Decorate source mode", sourceModeDesc: "Off by default to keep source text visible. Links, code and other protected content are still skipped when enabled.",
   rules: "Rules", newRule: "New rule", bulk: "Bulk add", import: "Import", export: "Export",
   search: "Filter rules…", empty: "Give your words a visual signature.", emptyDesc: "Create a rule or add several at once to get started.",
   noResults: "No matching rules", autosave: "Changes save automatically", saving: "Saving…", saved: "Saved", failed: "Could not save. Your changes are still here; edit again to retry.",
@@ -19,6 +20,7 @@ const en = {
 export type MessageKey = keyof typeof en;
 const zh: Record<MessageKey, string> = {
   enabled: "启用装饰", enabledDesc: "在编辑器和阅读视图中应用规则。", rules: "规则", newRule: "新建规则", bulk: "批量添加", import: "导入", export: "导出",
+  sourceMode: "对源码视图添加装饰", sourceModeDesc: "默认关闭，让源码模式保持原始文本。开启后仍会跳过链接、代码、公式等内容。",
   search: "筛选规则…", empty: "给文字一个鲜明的标记。", emptyDesc: "新建一条规则，或一次添加多组规则。", noResults: "没有匹配的规则", autosave: "修改后自动保存", saving: "正在保存…", saved: "已保存", failed: "保存失败，修改仍保留在当前页面；再次编辑可重试。",
   back: "全部规则", duplicate: "创建副本", copy: "副本", delete: "删除规则", undo: "撤销", deleted: "规则已删除", up: "上移", down: "下移", drag: "拖动排序 · Alt + ↑ / ↓",
   name: "规则名称", unnamed: "未命名规则", namePlaceholder: "用一个名称方便以后查找", matching: "匹配", mode: "匹配方式", keywords: "关键词（每行一个）", single: "单个关键词", multiple: "多个关键词", regex: "正则表达式", query: "关键词", queries: "关键词列表", queryHint: "每行一个关键词，只有一行也可以；逗号会作为文字匹配。", regexHint: "填写表达式，不包含两侧的 /。请使用简单表达式，避免匹配缓慢。", invalidRegex: "正则表达式无效，修正后此规则才会生效。",

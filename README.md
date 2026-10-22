@@ -11,6 +11,14 @@ Open **Settings → Keyword Decorator** and create a rule. Choose **Keywords (on
 - Duplicate a rule to reuse its appearance. Deleting a rule offers a short undo action.
 - Search the rule list by name or keyword. The list and editor use equal columns and scroll independently. Collapse the editor to browse only rules until you select one again. Below 360 CSS px of content width, selecting a rule opens its editor.
 
+## Decoration boundaries
+
+Decorations apply to Markdown note bodies in Live Preview and Reading view. Source mode shows the original text by default; enable **Decorate source mode** to opt in. Quick Switcher, suggestions, hover previews, settings and other rendered UI remain outside this scope.
+
+Links are excluded, including their labels, destinations, wiki-link aliases, references and bare URLs. Code, math, properties, tags, embeds and Markdown formatting markers are also skipped. Headings, lists, quotes, callout prose and tables remain eligible. Whole-line appearance skips protected content on that line.
+
+Custom CSS is scoped to the note body and to enabled decoration editors. Global directives such as `@import`, `@font-face` and `@keyframes` are ignored.
+
 ## Groups and appearance
 
 Create groups with the folder-plus button. Fold a group, toggle all its rules together, drag rules between groups, or drag a group to move its rule block. The group editor also has Move up / Move down buttons; the first and last positions disable the unavailable direction. The rule editor has a Group selector. Ungrouped rules come first, followed by groups in list order; earlier rules win overlapping matches.
@@ -98,6 +106,10 @@ npm run build:local
 Build outputs are in `dist/`. Local builds copy only plugin assets, preserving the vault's existing `data.json`. Reload the plugin, then open its settings. Use `npm run build:local:set` to build and open settings when Hot Reload is active.
 
 ## 中文说明
+
+装饰仅影响实时预览和阅读视图的 Markdown 笔记正文，不影响 Quick Switcher、建议列表、悬浮预览和设置等界面。源码模式默认显示原文，可通过「对源码视图添加装饰」单独开启。
+
+链接的显示文本、网址、双链别名、引用和裸网址均不装饰；代码、公式、属性、标签、嵌入及格式标记也会跳过。标题、列表、引用、Callout 正文和表格仍可装饰，整行样式同样避开受保护内容。自定义 CSS 仅限正文范围，忽略全局指令。
 
 **Emoji shortcodes** 作为带「内置」标识的特殊分组显示，可将 `:smile:`、`:heart:`、`:happy:` 转为系统 Emoji。共支持 1,914 个离线别名，未知短码保留原样，不含 Discord 服务器自定义表情及动图。点击组名即可控制「启用转换」和「隐藏匹配文字」，不再显示内部规则或额外匹配方式；普通规则只有关键词和正则两项。现有预设自动识别，保留原有外观及关闭状态，也可继续调整整组优先级；新建普通规则会放在内置组之外。默认隐藏短码，光标移入即可编辑原文；关闭隐藏后可同时显示 Emoji 与短码。
 

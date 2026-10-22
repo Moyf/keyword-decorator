@@ -1,5 +1,16 @@
 # Validation
 
+## 2026-10-21–22 Decoration boundaries and source mode
+
+- Synced with the merged rule workbench and Emoji shortcode changes. The existing groups, inheritance, ordering and shortcode preset remain supported.
+- `npm test`: 81 tests pass, including Markdown context exclusions, overlapping protected ranges, whole-line segmentation, default-off source settings, import/export compatibility, ancestor/pseudo-element CSS selectors and eligible fallback matches after a protected match is rejected.
+- Before the final review fixes, 15 checks passed in Obsidian 1.15 using an isolated plugin instance, native Markdown grammar, temporary CM6 editors and DOM. They cover source opt-in/out, link/code/math/tag/comment/embed exclusions, whole-line protection, Emoji hiding, foreign editors, reading view and the actual workbench toggle callback.
+- The isolated check confirms that the installed plugin's runtime settings and `data.json` hash are unchanged, and creates no notes. It reports no captured runtime errors.
+- Sixteen Chromium CSS checks pass on the final implementation. They cover pseudo-elements, functional selectors, quoted commas, conditional rules, dialog isolation, enabled-editor scope, theme/view ancestors, native nested children/media, declaration order and preventing selectors from escaping the note body.
+- Independent review found and verified fixes for broken custom-CSS ancestor conditions and dropped native nested rules. The same reviewer re-reviewed the final patch, independently passed all 81 tests and the diff check, and found no remaining merge blockers. Protected candidates now leave eligible lower-priority matches available, and older `hmd-math` tokens remain excluded.
+- Lint, TypeScript, production bundling, fixture-vault `build:local` and diff checks pass. The final official PR scan passes with 0 errors and the 10 existing underline/Settings `:has()` advisories.
+- Source mode is undecorated by default; Live Preview and Reading view decorate only Markdown note bodies. Obsidian was no longer running for a final host rerun; the expanded native link-context probe did not produce a result and is not counted. Full mouse-driven interaction and mobile-device testing remain outside these checks.
+
 ## PR #1 review - 2026-10-21
 
 The review covers the rule workbench, group appearance inheritance and ordering,

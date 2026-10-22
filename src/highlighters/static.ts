@@ -1,5 +1,5 @@
 import { combineConfig, Extension, Facet, Range, StateEffect, Text } from "@codemirror/state";
-import { syntaxTree, tokenClassNodeProp } from "@codemirror/language";
+import { syntaxTree } from "@codemirror/language";
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate, WidgetType } from "@codemirror/view";
 import { App } from "obsidian";
 import { createPrefixNode, isImageSourceFailed, isSvgMarkupValid, resolveImage } from "../markers";
@@ -7,9 +7,10 @@ import { compileRules, CompiledRule, findMatchesInRanges } from "./matching";
 import { SearchQueries } from "../settings/settings";
 import { getEffectiveQueries } from "../settings/groups";
 import DynamicHighlightsPlugin from "src/main";
+import { canDecorateEditor, EDITOR_SCOPE_CLASS, editorTextRanges, excludedEditorRanges, overlapsExcludedRange } from "./scope";
 
-export type StaticHighlightOptions = { queries: SearchQueries; queryOrder: string[]; enabled?: boolean };
-const defaultOptions: StaticHighlightOptions = { queries: {}, queryOrder: [], enabled: true };
+export type StaticHighlightOptions = { queries: SearchQueries; queryOrder: string[]; enabled?: boolean; decorateInSourceMode?: boolean };
+const defaultOptions: StaticHighlightOptions = { queries: {}, queryOrder: [], enabled: true, decorateInSourceMode: false };
 let runtimeApp: App | null = null;
 const refreshDecorations = StateEffect.define<null>();
 
@@ -25,7 +26,13 @@ export const staticHighlightConfig = Facet.define<StaticHighlightOptions, Requir
 export function staticHighlighterExtension(plugin: DynamicHighlightsPlugin): Extension {
   runtimeApp = plugin.app;
   const config = plugin.settings.staticHighlighter;
-  return [staticHighlighter, staticHighlightConfig.of({ ...structuredClone(config), queries: getEffectiveQueries(config), enabled: plugin.settings.enabled })];
+  return [staticHighlighter, staticHighlightConfig.of({ ...structuredClone(config), queries: getEffectiveQueries(config), enabled: plugin.settings.enabled }),
+    EditorView.editorAttributes.of(view => {
+      const options = view.state.facet(staticHighlightConfig);
+      return options.enabled && canDecorateEditor(view.state, options.decorateInSourceMode)
+        ? { class: EDITOR_SCOPE_CLASS } : null;
+    }),
+  ];
 }
 
 export interface Styles { [selector: string]: Record<string, string> }
@@ -36,7 +43,7 @@ export function buildStyles(plugin: DynamicHighlightsPlugin): Extension {
   const queries = getEffectiveQueries(plugin.settings.staticHighlighter);
   for (const [ruleId, query] of Object.entries(queries)) {
     if (query.enabled === false) continue;
-    const selector = `.${toInternalClassName(ruleId)}`;
+    const selector = `.cm-content .${toInternalClassName(ruleId)}`;
     const style: Record<string, string> = {};
     if (query.color) style.backgroundColor = query.color;
     if (query.textColor) style.color = query.textColor;
@@ -46,7 +53,6 @@ export function buildStyles(plugin: DynamicHighlightsPlugin): Extension {
     if (query.underline) cssProps["text-decoration"] = "underline";
     if (Object.keys(cssProps).length) Object.assign(style, cssProps);
     if (Object.keys(style).length) styles[selector] = style;
-    if (query.styleWholeLine && Object.keys(style).length) styles[`.cm-line${selector}`] = style;
   }
   return EditorView.theme(styles);
 }
@@ -76,6 +82,9 @@ const staticHighlighter = ViewPlugin.fromClass(
       const config = update.state.facet(staticHighlightConfig);
       const reconfigured = config !== this.config || update.startState.facet(staticHighlightConfig) !== config;
       const forced = update.transactions.some(transaction => transaction.effects.some(effect => effect.is(refreshDecorations)));
+      const modeChanged = canDecorateEditor(update.startState, config.decorateInSourceMode === true) !==
+        canDecorateEditor(update.state, config.decorateInSourceMode === true);
+      const parsed = syntaxTree(update.startState) !== syntaxTree(update.state);
       if (reconfigured) {
         this.config = config;
         this.compiled = compileRules(config.queries, config.queryOrder);
@@ -85,9 +94,12 @@ const staticHighlighter = ViewPlugin.fromClass(
         this.decorations = this.decorations.map(update.changes);
         this.widgetDecorations = this.widgetDecorations.map(update.changes);
       }
-      if (update.docChanged) {
+      if (modeChanged || reconfigured) {
+        this.clearTimer();
+        ({ token: this.decorations, widget: this.widgetDecorations } = this.getDeco(update.view));
+      } else if (update.docChanged) {
         this.scheduleRecompute(update.view);
-      } else if (forced || reconfigured || update.viewportChanged || (update.selectionSet && this.compiled.some(item => item.rule.hideText))) {
+      } else if (forced || parsed || update.viewportChanged || (update.selectionSet && this.compiled.some(item => item.rule.hideText))) {
         this.clearTimer();
         ({ token: this.decorations, widget: this.widgetDecorations } = this.getDeco(update.view));
       }
@@ -114,37 +126,24 @@ const staticHighlighter = ViewPlugin.fromClass(
       const tokenDecos: Range<Decoration>[] = [];
       const widgetDecos: Range<Decoration>[] = [];
       const lineRules = new Map<number, { priority: number; ruleId: string; rule: SearchQueries[string] }>();
-      if (!this.config.enabled || !this.compiled.length) return { token: Decoration.none, widget: Decoration.none };
+      if (!this.config.enabled || !this.compiled.length || !canDecorateEditor(view.state, this.config.decorateInSourceMode === true)) return { token: Decoration.none, widget: Decoration.none };
       const state = view.state;
-      const tree = syntaxTree(state);
       const visibleRanges = view.visibleRanges.filter(range => range.to > range.from);
+      if (!visibleRanges.length) return { token: Decoration.none, widget: Decoration.none };
+      const excluded = excludedEditorRanges(state, state.doc.lineAt(visibleRanges[0].from).from,
+        state.doc.lineAt(visibleRanges[visibleRanges.length - 1].to).to);
       if (this.lastDocument !== state.doc) {
         this.lastDocument = state.doc;
         this.documentText = state.doc.toString();
       }
       const text = this.documentText;
-      for (const match of findMatchesInRanges(text, visibleRanges, this.compiled)) {
+      for (const match of findMatchesInRanges(text, visibleRanges, this.compiled,
+        match => !overlapsExcludedRange(excluded, match.from, match.to))) {
         const from = match.from;
         const to = match.to;
         const startLine = state.doc.lineAt(from);
         const endLine = state.doc.lineAt(Math.max(from, to - 1));
-        const syntaxNode = tree.resolveInner(Math.min(startLine.from + 1, state.doc.length));
-        const nodeProps = syntaxNode.type.prop(tokenClassNodeProp)?.split(" ") || [];
-        if (nodeProps.some(token => token === "hmd-codeblock" || token === "hmd-frontmatter")) continue;
         const rule = match.rule as SearchQueries[string];
-        if (rule.queryMode === "emoji-shortcodes") {
-          let node: typeof syntaxNode | null = tree.resolveInner(Math.min(from + 1, state.doc.length));
-          let excluded = false;
-          while (node) {
-            const tokens = node.type.prop(tokenClassNodeProp)?.split(" ") || [];
-            if (tokens.some(token => ["inline-code", "hmd-codeblock", "hmd-frontmatter", "math", "hmd-math"].includes(token))) {
-              excluded = true;
-              break;
-            }
-            node = node.parent;
-          }
-          if (excluded) continue;
-        }
         const classes = [toInternalClassName(match.ruleId), ...(rule.class || "").split(/\s+/).filter(Boolean)];
         if (rule.styleWholeLine) {
           for (let lineNumber = startLine.number; lineNumber <= endLine.number; lineNumber++) {
@@ -177,7 +176,13 @@ const staticHighlighter = ViewPlugin.fromClass(
       for (const [lineNumber, value] of lineRules) {
         const line = state.doc.line(lineNumber);
         const classes = [toInternalClassName(value.ruleId), ...(value.rule.class || "").split(/\s+/).filter(Boolean)].join(" ");
-        tokenDecos.push(Decoration.line({ class: classes }).range(line.from));
+        if (!overlapsExcludedRange(excluded, line.from, line.to)) {
+          tokenDecos.push(Decoration.line({ class: classes }).range(line.from));
+        } else {
+          for (const range of editorTextRanges(excluded, line.from, line.to)) {
+            tokenDecos.push(Decoration.mark({ class: classes }).range(range.from, range.to));
+          }
+        }
       }
       return {
         token: Decoration.set(tokenDecos.sort((a, b) => a.from - b.from || a.to - b.to)),

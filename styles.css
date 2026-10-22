@@ -1,8 +1,8 @@
 /* Reading/editor decorations. All selectors stay within plugin-owned classes. */
-.cm-matched-word,
-.cm-matched-string { text-decoration-line: underline; text-decoration-style: dashed; text-decoration-color: var(--text-accent); }
-.cm-current-word,
-.cm-current-string { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--text-accent); }
+.keyword-decorator-editor-scope .cm-content .cm-matched-word,
+.keyword-decorator-editor-scope .cm-content .cm-matched-string { text-decoration-line: underline; text-decoration-style: dashed; text-decoration-color: var(--text-accent); }
+.keyword-decorator-editor-scope .cm-content .cm-current-word,
+.keyword-decorator-editor-scope .cm-content .cm-current-string { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--text-accent); }
 
 .keyword-decorator-prefix {
   display: inline-flex;
@@ -19,7 +19,7 @@
 .kd-icon-preview > svg { width: 20px; height: 20px; }
 .keyword-decorator-hidden-text { display: none; }
 .keyword-decorator-image-error .keyword-decorator-hidden-text { display: inline; }
-.cm-editor .keyword-decorator-hide-text { font-size: 0; letter-spacing: 0; }
+.keyword-decorator-editor-scope .cm-content .keyword-decorator-hide-text { font-size: 0; letter-spacing: 0; }
 
 /* Quiet, compact rule workbench; responds to its own available width. */
 .keyword-decorator-settings {

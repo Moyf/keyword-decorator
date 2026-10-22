@@ -10,6 +10,7 @@ export interface ParsedSettingsImport {
   groupOrder?: string[];
   enabled?: boolean;
   installedPresets?: string[];
+  decorateInSourceMode?: boolean;
 }
 
 /** Parse old query-map exports and the newer full-settings package without mutating live settings. */
@@ -25,7 +26,7 @@ export function parseSettingsImport(raw: unknown): { value?: ParsedSettingsImpor
   const queriesRaw = settingsSource.queries && typeof settingsSource.queries === "object" && !Array.isArray(settingsSource.queries)
     ? settingsSource.queries as Record<string, unknown>
     : settingsSource;
-  const reserved = new Set(["enabled", "queryOrder", "groups", "groupOrder", "installedPresets", "selectionHighlighter", "staticHighlighter", "version"]);
+  const reserved = new Set(["enabled", "queryOrder", "groups", "groupOrder", "installedPresets", "decorateInSourceMode", "selectionHighlighter", "staticHighlighter", "version"]);
   const queries = Object.create(null) as SearchQueries;
   for (const [id, value] of Object.entries(queriesRaw)) {
     if (reserved.has(id)) continue;
@@ -112,7 +113,11 @@ export function parseSettingsImport(raw: unknown): { value?: ParsedSettingsImpor
   const installed = settingsSource.installedPresets;
   if (installed !== undefined && (!Array.isArray(installed) || installed.some(id => typeof id !== "string"))) errors.push("Installed presets must be an array of IDs.");
   const installedPresets = Array.isArray(installed) ? installed.filter((id): id is string => typeof id === "string") : undefined;
-  return errors.length ? { errors } : { value: { queries, queryOrder, groups, groupOrder, enabled, installedPresets }, errors };
+  const decorateInSourceMode = settingsSource.decorateInSourceMode;
+  if (decorateInSourceMode !== undefined && typeof decorateInSourceMode !== "boolean") errors.push("Source mode decoration must be a boolean.");
+  return errors.length ? { errors } : { value: { queries, queryOrder, groups, groupOrder, enabled, installedPresets,
+    ...(typeof decorateInSourceMode === "boolean" ? { decorateInSourceMode } : {}),
+  }, errors };
 }
 
 const prefixTypes: PrefixType[] = ["none", "emoji", "icon", "image", "url", "svg"];
@@ -199,11 +204,12 @@ function parseGroupOrder(value: unknown, groups: Record<string, RuleGroup> | und
 export function applySettingsImport(value: ParsedSettingsImport, current: DynamicHighlightsSettings, mode: "merge" | "replace"): DynamicHighlightsSettings {
   // A replaced/deleted preset must not come back after the next reload.
   const installedPresets = [...new Set([...(current.staticHighlighter.installedPresets ?? []), ...(value.installedPresets ?? [])])];
+  const decorateInSourceMode = value.decorateInSourceMode ?? current.staticHighlighter.decorateInSourceMode ?? false;
   if (mode === "replace") {
     const normalized = normalizeSettings({
       enabled: value.enabled ?? current.enabled,
       selectionHighlighter: current.selectionHighlighter,
-      staticHighlighter: { queries: value.queries, queryOrder: value.queryOrder, groups: value.groups ?? {}, groupOrder: value.groupOrder ?? [], installedPresets },
+      staticHighlighter: { queries: value.queries, queryOrder: value.queryOrder, groups: value.groups ?? {}, groupOrder: value.groupOrder ?? [], installedPresets, decorateInSourceMode },
     });
     return normalized;
   }
@@ -217,7 +223,7 @@ export function applySettingsImport(value: ParsedSettingsImport, current: Dynami
   return normalizeSettings({
     ...current,
     enabled: value.enabled ?? current.enabled,
-    staticHighlighter: { ...current.staticHighlighter, queries, queryOrder, groups, groupOrder, installedPresets },
+    staticHighlighter: { ...current.staticHighlighter, queries, queryOrder, groups, groupOrder, installedPresets, decorateInSourceMode },
   });
 }
 

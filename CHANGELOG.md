@@ -10,6 +10,8 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 Added
 
+- **Source mode toggle**: Keep source mode undecorated by default, with an opt-in setting that preserves the same content exclusions as Live Preview.
+
 - **Emoji shortcodes**: Add a dedicated built-in group with enable and hide-text switches for 1,914 offline aliases, including `:happy:`. Keep ordinary match types limited to keywords and regex; preserve existing preset settings, priority, import/export and cursor recovery.
 
 - **Rule workbench**: Manage rules with automatic saving, master and per-rule switches, filtering, duplication, reordering and deletion undo, in a responsive layout with independently scrolling panes.
@@ -21,6 +23,10 @@ All notable changes to this project will be documented in this file.
 
 - **Matching and line styles**: Use one Keywords field for one or several lines, with legacy rule semantics preserved. Apply appearance to a whole logical line, and match regex `^` / `$` consistently in editing and reading views.
 
+### 🐛 Fixed
+
+- **Decoration boundaries**: Limit decorations and custom CSS to Markdown note bodies. Exclude link labels and destinations, code, math, properties, tags, embeds and other rendered UI, including when applying whole-line styles.
+
 <details>
 <summary>中文说明（点击展开）</summary>
 
@@ -29,6 +35,8 @@ All notable changes to this project will be documented in this file.
 - **Obsidian 兼容性**：最低要求调整为 Obsidian 1.8.7，请先更新 Obsidian 再安装本次更新。
 
 ### 🚀 新增
+
+- **源码视图开关**：源码模式默认保留原文，可通过「对源码视图添加装饰」单独开启，并沿用实时预览的内容排除规则。
 
 - **Emoji 短码**：以特殊内置组提供 1,914 个离线别名（含 `:happy:`），独立控制整套启停及隐藏文字；普通匹配方式仅保留关键词和正则，兼容现有预设设置、优先级、导入导出及光标恢复。
 
@@ -40,5 +48,9 @@ All notable changes to this project will be documented in this file.
 ### ⚡ 调整
 
 - **匹配与整行样式**：统一使用「关键词」字段填写一行或多行，保留旧规则的匹配含义；支持整行外观，编辑和阅读视图中的正则 `^`／`$` 均按逻辑行匹配。
+
+### 🐛 修复
+
+- **装饰范围**：将装饰和自定义 CSS 限定在 Markdown 笔记正文，排除链接显示文本与网址、代码、公式、属性、标签、嵌入及其他界面；整行样式同样跳过这些内容。
 
 </details>

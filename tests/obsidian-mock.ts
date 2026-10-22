@@ -1,4 +1,11 @@
 // Data tests import modal modules, but never construct these UI classes.
+import { StateField } from "@codemirror/state";
+
+export class MarkdownView {}
+export const editorInfoField = StateField.define({ create: () => new MarkdownView(), update: value => value });
+export const editorViewField = editorInfoField;
+export const editorLivePreviewField = StateField.define({ create: () => true, update: value => value });
+
 export class Modal {
   constructor(_app?: unknown) {
     void _app;
