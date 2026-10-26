@@ -1,38 +1,45 @@
 # Keyword Decorator
 
+[![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&logoColor=white&color=%23483699&label=Downloads&query=%24%5B%22keyword-decorator%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=keyword-decorator) [![Release](https://img.shields.io/github/v/release/Moyf/keyword-decorator?label=Release)](https://github.com/Moyf/keyword-decorator/releases) [![GitHub Issues](https://img.shields.io/github/issues/Moyf/keyword-decorator?label=Issues)](https://github.com/Moyf/keyword-decorator/issues) [![Stars](https://img.shields.io/github/stars/Moyf/keyword-decorator?logo=github&label=Stars)](https://github.com/Moyf/keyword-decorator/stargazers)
+
+English | [中文文档](README-zh.md)
+
 Give keywords a visual marker in Obsidian's editor and reading view. Rules can add text styles, emoji, Lucide icons, vault images, or pasted SVG artwork without changing your notes.
 
-## Use
+![](assets/demo-decorations.png)
 
-Open **Settings → Keyword Decorator** and create a rule. Choose **Keywords (one per line)** or **Regular expression**. One line matches one keyword; several lines share the same appearance. Changes save automatically; the preview updates as you type.
+## How to use
 
-- Use the master switch to pause all decorations and each rule's switch to pause one rule.
-- Drag a rule by its grip to change priority. You can also focus its grip and press `Alt + ↑ / ↓`, or use the editor's arrow buttons. Earlier rules win overlapping matches.
-- Ctrl/Cmd-click rules to toggle selection, Shift-click to select a visible range, or Ctrl/Cmd + Shift-click to add a range. Drag any selected rule's grip to move the selection together, including between groups; original relative order is preserved. Press Esc to cancel a drag. New rules focus the Keyword field immediately.
-- Duplicate a rule to reuse its appearance. Deleting a rule offers a short undo action.
-- Search the rule list by name or keyword. The list and editor use equal columns and scroll independently. Collapse the editor to browse only rules until you select one again. At 620 CSS px of content width or less, selecting a rule opens its editor; modifier-clicking keeps the list open for multi-selection.
+Open **Settings → Keyword Decorator** and create a rule. Choose **Keywords (one per line)** or **Regular expression**, then pick an appearance. One line matches one keyword; several lines share the same appearance. Changes save automatically and the preview updates as you type.
 
-## Decoration boundaries
+## Highlights
 
-Decorations apply to Markdown note bodies in Live Preview and Reading view. Source mode shows the original text by default; enable **Decorate source mode** to opt in. Quick Switcher, suggestions, hover previews, settings and other rendered UI remain outside this scope.
+### A workbench for many rules
 
-Links are excluded, including their labels, destinations, wiki-link aliases, references and bare URLs. Code, math, properties, tags, embeds and Markdown formatting markers are also skipped. Headings, lists, quotes, callout prose and tables remain eligible. Whole-line appearance skips protected content on that line.
+![](assets/demo-workbench.png)
 
-Custom CSS is scoped to the note body and to enabled decoration editors. Global directives such as `@import`, `@font-face` and `@keyframes` are ignored.
+The rule workbench is built for vaults with dozens of rules:
 
-## Groups and appearance
+- **Groups** organize rules, fold and expand, and toggle a whole set together. Shared group appearance is inherited by every rule until a rule overrides a field — ↶ restores inheritance.
+- **Fast reordering**: drag a rule, a selection, or a whole group; Move up / Move down buttons and `Alt + ↑ / ↓` work too. Earlier rules win overlapping matches.
+- **Multi-selection**: Ctrl/Cmd-click to toggle rules, Shift-click for a visible range, then drag the selection together — even across groups — with relative order preserved.
+- **Bulk add** pastes keyword lines, spreadsheet columns, or a JSON rule array, previews the result, and creates one editable rule per entry.
+- **Import and export** move rules with their order, groups and switches preserved; group exports add a single group with collision-safe IDs.
+- Autosave, filtering, duplication, deletion undo and a responsive two-pane layout with independently scrolling panes are built in.
 
-Create groups with the folder-plus button. Double-click a group name to fold or expand it; single-click to edit without moving the list. Toggle all its rules together, drag rules between groups, or drag a group to move its rule block. The group editor also has Move up / Move down buttons; the first and last positions disable the unavailable direction. The rule editor has a Group selector. Ungrouped rules come first, followed by groups in list order; earlier rules win overlapping matches.
+### Markers beyond text styles
 
-Use **Export group** in a group's editor to export only its rules, order, shared appearance and switches. **Import groups** beside New group adds the exported groups as new content. Repeated imports create separate groups and remap rule references, preserving existing groups, rules and the master switch. Empty groups are supported.
+- **Emoji shortcodes**: a built-in group converts `:smile:` → 😄 and 1,913 more aliases, fully offline via a bundled dictionary. Unknown names stay unchanged, and **Hide matched text** leaves only the emoji — move the cursor into a match to edit the original shortcode.
+- **Lucide icons**: search icons with suggestions and previews; icons inherit the rule's text color by default.
+- **Vault images and SVG**: pick vault images by name or path with thumbnails, paste complete SVG markup, or use direct image URLs. Width, height and hide-text are configurable; failed loads leave the original text readable.
 
-Click a group name to configure shared appearance. Unset rule fields inherit the group; explicit values, including disabled toggles or cleared colors, override it. Use ↶ beside a field to restore inheritance, or reset all appearance fields from the rule editor. Disabling a group preserves each rule's own switch. Full exports preserve groups, group order and appearance.
+### Whole-line styling
 
-Lucide icons offer keyword suggestions with a preview and name. Icons inherit text color by default; this can be turned off. Each marker type remembers its own value. Background color can optionally include the prefix marker.
+Enable **Apply style to the whole line** to paint the logical line containing a match, soft wrapping included. Regular-expression `^` and `$` anchors match each logical line consistently in the editor and reading view.
 
-Advanced → **Apply style to the whole line** is off by default. Enable it to style the logical line containing a match, including text around the keyword. Soft wrapping does not split a logical line. If multiple whole-line rules match one line, the earliest rule supplies its appearance. Regular-expression `^` and `$` match each logical line.
+### Precise boundaries
 
-Use `&` in Custom CSS to target this rule's matches, or the line when whole-line styling is enabled:
+Decorations stay inside Markdown note bodies in Live Preview and Reading view; source mode keeps the original text unless you opt in. Links (labels, destinations, aliases, bare URLs), code, math, properties, tags, embeds and formatting markers are always skipped, while headings, lists, quotes, callout prose and tables remain eligible. Custom CSS is scoped to the note body with `&` targeting this rule's matches:
 
 ```css
 & {
@@ -42,7 +49,37 @@ Use `&` in Custom CSS to target this rule's matches, or the line when whole-line
 }
 ```
 
-## Emoji shortcodes
+## Features
+
+### Decoration boundaries
+
+Decorations apply to Markdown note bodies in Live Preview and Reading view. Source mode shows the original text by default; enable **Decorate source mode** to opt in, with the same content exclusions as Live Preview. Quick Switcher, suggestions, hover previews, settings and other rendered UI remain outside this scope.
+
+Links are excluded, including their labels, destinations, wiki-link aliases, references and bare URLs. Code, math, properties, tags, embeds and Markdown formatting markers are also skipped. Headings, lists, quotes, callout prose and tables remain eligible. Whole-line appearance skips protected content on that line.
+
+Custom CSS is scoped to the note body and to enabled decoration editors. Global directives such as `@import`, `@font-face` and `@keyframes` are ignored.
+
+### Rule workbench
+
+Open **Settings → Keyword Decorator** to manage rules:
+
+- Use the master switch to pause all decorations and each rule's switch to pause one rule.
+- Drag a rule by its grip to change priority, focus its grip and press `Alt + ↑ / ↓`, or use the editor's arrow buttons. Press Esc to cancel a drag. New rules focus the Keyword field immediately.
+- Ctrl/Cmd-click rules to toggle selection, Shift-click to select a visible range, or Ctrl/Cmd + Shift-click to add a range. Drag any selected rule's grip to move the selection together, including between groups; original relative order is preserved.
+- Duplicate a rule to reuse its appearance. Deleting a rule offers a short undo action.
+- Search the rule list by name or keyword. The list and editor use equal columns and scroll independently. Collapse the editor to browse only rules until you select one again. At 620 CSS px of content width or less, selecting a rule opens its editor; modifier-clicking keeps the list open for multi-selection.
+
+### Groups and appearance
+
+Create groups with the folder-plus button. Double-click a group name to fold or expand it; single-click to edit without moving the list. Toggle all its rules together, drag rules between groups, or drag a group to move its rule block. The group editor also has Move up / Move down buttons; the first and last positions disable the unavailable direction. The rule editor has a Group selector. Ungrouped rules come first, followed by groups in list order; earlier rules win overlapping matches.
+
+Use **Export group** in a group's editor to export only its rules, order, shared appearance and switches. **Import groups** beside New group adds the exported groups as new content. Repeated imports create separate groups and remap rule references, preserving existing groups, rules and the master switch. Empty groups are supported.
+
+Click a group name to configure shared appearance. Unset rule fields inherit the group; explicit values, including disabled toggles or cleared colors, override it. Use ↶ beside a field to restore inheritance, or reset all appearance fields from the rule editor. Disabling a group preserves each rule's own switch. Full exports preserve groups, group order and appearance.
+
+Lucide icons offer keyword suggestions with a preview and name. Icons inherit text color by default; this can be turned off. Each marker type remembers its own value. Background color can optionally include the prefix marker.
+
+### Emoji shortcodes
 
 The default **Emoji shortcodes** group displays `:smile:` as 😄, `:heart:` as ❤️ and `:happy:` as 😄, in both the editor and reading view. Its single rule recognizes 1,914 aliases using a bundled local dictionary. No images, extra runtime dependency or network connection are required; appearance follows the device's emoji font. Unknown names stay unchanged. Discord server custom emoji and animated emoji are not included.
 
@@ -52,7 +89,7 @@ This is a special built-in group, marked **Built-in** in the list. Click its nam
 
 The aliases come from [gemoji](https://github.com/github/gemoji), with an additional `happy` alias. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the pinned source and license.
 
-## Images and SVG
+### Images and SVG
 
 Choose **Vault image** to search image names and full paths, with thumbnails. The picker saves the full vault path so files with identical names in different folders remain distinct. You can also enter a vault path or wikilink manually.
 
@@ -64,7 +101,7 @@ Choose **Image URL** to paste a direct HTTP or HTTPS image link, including URLs 
 
 The plugin runs locally. An image URL beginning with `https://` or `http://` connects to that image's host when displayed; using vault images or pasted SVG avoids these network requests. No account, telemetry, or paid service is required.
 
-## Bulk add
+### Bulk add
 
 Use the list's **Bulk add** button. Each line creates a separate rule:
 
@@ -84,13 +121,45 @@ The first row is data too; omit column headings. A JSON rule array or previously
 
 Several lines in a **Keywords** rule share one appearance. **Bulk add** creates independent rules that you can edit individually. Commas in the new Keywords mode are literal text; legacy comma-separated rules keep their original matching behavior and are displayed as separate lines when opened for editing.
 
-## Import and export
+### Import and export
 
 Export copies or downloads a JSON package with rules, priority, and master-switch state. Older exports containing a map of rule IDs are also accepted. Import validates pasted JSON or a selected file automatically and defaults to appending new content. You can explicitly choose to update matching IDs or replace all rules. The empty-replacement confirmation appears only when needed. Summaries and footer actions stay visible while editing.
 
-## Performance
+### Performance
 
 Editor matching is restricted to visible content. Matchers are compiled when rules change; saves are debounced and serialized. Image resolution is cached, and disabled rules skip matching. Avoid complex regular expressions: JavaScript cannot safely interrupt a pathological expression on the UI thread. See [DEVELOPMENT.md](DEVELOPMENT.md) for validation details and development commands.
+
+## Installation
+
+The plugin will be available directly from the [Obsidian plugin browser](https://obsidian.md/plugins?id=keyword-decorator).
+
+Alternatively, you can install with [BRAT](https://github.com/TfTHacker/obsidian42-brat) by using the following link: `https://github.com/Moyf/keyword-decorator`.
+
+## Acknowledgments
+
+- Built on [Dynamic Highlights](https://github.com/nothingislost/obsidian-dynamic-highlights) by [NothingIsLost](https://github.com/nothingislost) ❤️ — Keyword Decorator is a ground-up redesign and extension of that work
+- Emoji aliases come from [gemoji](https://github.com/github/gemoji) by GitHub — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+
+## More from Moy
+
+If you appreciate my plugin design and quality, check out my other Obsidian plugins:
+
+| Plugin | Description | Stats |
+| --- | --- | --- |
+| [Yearly Glance](https://github.com/Moyf/yearly-glance) | See your whole year's key events at a glance. | [![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&logoColor=white&color=%23483699&label=downloads&query=%24%5B%22yearly-glance%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=yearly-glance) [![GitHub Stars](https://img.shields.io/github/stars/Moyf/yearly-glance?logo=github&label=Stars)](https://github.com/Moyf/yearly-glance/stargazers) |
+| [Easy Copy](https://github.com/Moyf/easy-copy) | Easily copy formatted text, or copy elegant links. | [![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&logoColor=white&color=%23483699&label=downloads&query=%24%5B%22easy-copy%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=easy-copy) [![GitHub Stars](https://img.shields.io/github/stars/Moyf/easy-copy?logo=github&label=Stars)](https://github.com/Moyf/easy-copy/stargazers) |
+| [Better Links](https://github.com/Moyf/better-links) | The link popover editor you absolutely need. | [![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&logoColor=white&color=%23483699&label=downloads&query=%24%5B%22better-links%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=better-links) [![GitHub Stars](https://img.shields.io/github/stars/Moyf/better-links?logo=github&label=Stars)](https://github.com/Moyf/better-links/stargazers) |
+| [Style Context](https://github.com/Moyf/style-context) | Set your Obsidian background to any image in your vault. | [![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&logoColor=white&color=%23483699&label=downloads&query=%24%5B%22style-context%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=style-context) [![GitHub Stars](https://img.shields.io/github/stars/Moyf/style-context?logo=github&label=Stars)](https://github.com/Moyf/style-context/stargazers) |
+| [Colorful Highlights](https://github.com/Moyf/colorful-highlights) | Enhanced colorful highlights with multiple styles and custom colors. | [![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&logoColor=white&color=%23483699&label=downloads&query=%24%5B%22colorful-highlights%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=colorful-highlights) [![GitHub Stars](https://img.shields.io/github/stars/Moyf/colorful-highlights?logo=github&label=Stars)](https://github.com/Moyf/colorful-highlights/stargazers) |
+| [Single Choice Property](https://github.com/Moyf/single-choice-property) | Keep selected list properties to only one value. | [![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&logoColor=white&color=%23483699&label=downloads&query=%24%5B%22single-choice-property%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=single-choice-property) [![GitHub Stars](https://img.shields.io/github/stars/Moyf/single-choice-property?logo=github&label=Stars)](https://github.com/Moyf/single-choice-property/stargazers) |
+
+> See all my plugins on my [Obsidian Community page](https://community.obsidian.md/users/moyf).
+
+Friend plugins I contributed to: [Note Toolbar](https://github.com/chrisgurney/obsidian-note-toolbar) & [Typify](https://github.com/leike-dev/Obsidian-Typify) ❤️
+
+## Support
+
+If you like Keyword Decorator, consider [buying me a coffee on Ko-fi](https://ko-fi.com/moy) ☕
 
 ## Development
 
@@ -107,32 +176,6 @@ npm run build:local
 ```
 
 Build outputs are in `dist/`. Local builds copy only plugin assets, preserving the vault's existing `data.json`. Reload the plugin, then open its settings. Use `npm run build:local:set` to build and open settings when Hot Reload is active.
-
-## 中文说明
-
-装饰仅影响实时预览和阅读视图的 Markdown 笔记正文，不影响 Quick Switcher、建议列表、悬浮预览和设置等界面。源码模式默认显示原文，可通过「对源码视图添加装饰」单独开启。
-
-链接的显示文本、网址、双链别名、引用和裸网址均不装饰；代码、公式、属性、标签、嵌入及格式标记也会跳过。标题、列表、引用、Callout 正文和表格仍可装饰，整行样式同样避开受保护内容。自定义 CSS 仅限正文范围，忽略全局指令。
-
-**Emoji shortcodes** 作为带「内置」标识的特殊分组显示，可将 `:smile:`、`:heart:`、`:happy:` 转为系统 Emoji。共支持 1,914 个离线别名，未知短码保留原样，不含 Discord 服务器自定义表情及动图。点击组名即可控制「启用转换」和「隐藏匹配文字」，不再显示内部规则或额外匹配方式；普通规则只有关键词和正则两项。现有预设自动识别，保留原有外观及关闭状态，也可继续调整整组优先级；新建普通规则会放在内置组之外。默认隐藏短码，光标移入即可编辑原文；关闭隐藏后可同时显示 Emoji 与短码。
-
-在编辑器和阅读视图中，为关键词添加颜色、文字样式、Emoji、Lucide 图标、库内图片或 SVG。插件只改变显示，不改动笔记原文。
-
-设置页支持自动保存、总开关、单规则开关、拖动排序、复制、筛选和删除撤销。左右列宽为 1:1，列表与编辑区独立滚动；可随时收起设置，直到再次点击规则进入编辑。面板不超过 620 CSS px 时使用单列导航，按住修饰键选择时保留列表。断点按缩放后的实际面板宽度判断。
-
-Ctrl/Cmd 点击可切换规则选择，Shift 点击选择可见的连续范围，Ctrl/Cmd + Shift 点击追加范围。拖动任一已选规则的手柄可整批移动，支持跨分组并保留原有相对顺序；Esc 取消拖动。新建规则后直接聚焦「关键词」输入框。
-
-分组支持双击组名折叠／展开、整组启用／禁用、组间拖动规则与整组排序；单击组名编辑时保留列表位置。分组编辑区提供「上移／下移」按钮，首尾位置会禁用不可用的方向，也可在规则编辑区选择所属分组。点击分组名称配置共享样式；规则未设置的字段继承分组，明确关闭或清空的字段优先使用自身配置，↶ 可恢复继承。未分组规则优先，其后按分组及组内顺序匹配。
-
-分组编辑区的「导出分组」仅导出该组的规则、顺序、共享样式和开关。「新建分组」旁的「导入分组」会追加新组；重复导入也会生成独立分组并重新关联规则，保留现有内容和总开关，支持空分组。
-
-Lucide 支持关键字筛选、图标预览与名称，默认继承文字颜色。各装饰类型分别记忆内容；背景可选包含前缀。Advanced 的「把样式附加到整行」默认关闭，开启后作用于关键字所在的整个逻辑行；自动换行仍算同一行。正则的 `^`／`$` 按逻辑行匹配。自定义 CSS 可使用上方示例中的 `&` 定位当前规则。
-
-图片支持按名称或路径搜索并显示缩略图，选择后保存完整库内路径。「网络图片」可直接粘贴 HTTP／HTTPS 图片链接，保留链接中的查询参数；SVG 可直接粘贴完整代码。三者均可设置显示尺寸；「隐藏匹配文字」默认关闭，开启后只保留图片，编辑时光标进入匹配范围会恢复原文显示。
-
-「批量添加」支持每行一个关键词、从表格粘贴名称／关键词／图片路径三列，或粘贴 JSON。批量添加生成独立规则；匹配方式现在只有「关键词（每行一个）」和「正则表达式」。关键词填写一行或多行均可，逗号按文字匹配；旧规则的匹配含义会保留。导入内容会自动校验，默认追加新内容，也可明确选择更新相同 ID 或替换全部，仅在需要清空时显示确认；导出会保留规则顺序和开关状态。
-
-使用库内图片和 SVG 时完全本地运行；填写远程图片 URL 时会连接对应图片网站。复杂正则仍可能影响界面响应，请优先使用简单表达式或普通关键词。
 
 ## License
 

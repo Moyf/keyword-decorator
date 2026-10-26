@@ -4,7 +4,7 @@
   "version": "0.3.1",
   "minAppVersion": "1.8.7",
   "description": "Decorate keyword matches in the editor and reading view with configurable styles and markers.",
-  "author": "NothingIsLost",
-  "authorUrl": "https://github.com/nothingislost",
+  "author": "Moy",
+  "authorUrl": "https://github.com/Moyf",
   "isDesktopOnly": false
 }
