@@ -1,4 +1,5 @@
-/* Reading/editor decorations. All selectors stay within plugin-owned classes. */
+/* Reading/editor decorations. All selectors stay within plugin-owned classes.
+   Decoration styles are progressive enhancement; keep the underline fallback. */
 .keyword-decorator-editor-scope .cm-content .cm-matched-word,
 .keyword-decorator-editor-scope .cm-content .cm-matched-string { text-decoration-line: underline; text-decoration-style: dashed; text-decoration-color: var(--text-accent); }
 .keyword-decorator-editor-scope .cm-content .cm-current-word,
@@ -34,8 +35,8 @@
   padding: 6px;
   box-sizing: border-box;
 }
-.setting-page.vertical-tab-content:has(> .keyword-decorator-settings) { display: flex; flex-direction: column; overflow: hidden; }
-.setting-page:has(> .keyword-decorator-settings) > .setting-page-titlebar { flex-shrink: 0; }
+.keyword-decorator-rules-page.vertical-tab-content { display: flex; flex-direction: column; overflow: hidden; }
+.keyword-decorator-rules-page > .setting-page-titlebar { flex-shrink: 0; }
 .kd-toolbar,
 .kd-actions,
 .kd-list-actions,
@@ -224,7 +225,9 @@
   .kd-list-actions > button { padding-inline: 8px; }
 }
 
-@container keyword-decorator (max-width: 620px) {
+/* A ~900px settings window leaves ~610px after the host sidebar and padding.
+   Keep two usable ~273px columns above 560px; narrow windows still use one. */
+@container keyword-decorator (max-width: 560px) {
   .kd-layout { grid-template-columns: minmax(0, 1fr); }
   .kd-editor { display: none; border: 0; padding-inline-start: 3px; }
   .kd-layout.is-editing .kd-sidebar { display: none; }
