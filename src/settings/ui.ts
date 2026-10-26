@@ -1,4 +1,4 @@
-import { App, ButtonComponent, Notice, PluginSettingTab, Setting, SettingDefinitionItem, TextComponent, ToggleComponent, setIcon } from "obsidian";
+import { App, ButtonComponent, Notice, PluginSettingTab, SettingDefinitionItem, SettingPage, TextComponent, ToggleComponent, setIcon } from "obsidian";
 import { attachGroupedReorder, GroupedReorderAction } from "./reorder";
 import DynamicHighlightsPlugin from "../main";
 import { localize, t } from "../i18n";
@@ -27,7 +27,7 @@ export class SettingTab extends PluginSettingTab {
   private list!: HTMLElement;
   private editor!: HTMLElement;
   private layout!: HTMLElement;
-  private status!: HTMLElement;
+  private status?: HTMLElement;
   private count!: HTMLElement;
   private filter = "";
   private rows = new Map<string, HTMLElement>();
@@ -36,44 +36,44 @@ export class SettingTab extends PluginSettingTab {
   private editorCleanup?: () => void;
   private documentCleanup?: () => void;
   private groupClickCleanup?: () => void;
+  private rulesPage: DecorationRulesPage | null = null;
   constructor(app: App, public plugin: DynamicHighlightsPlugin) { super(app, plugin); }
 
   getSettingDefinitions(): SettingDefinitionItem[] {
-    return [{ name: "", searchable: false, render: setting => {
-      setting.settingEl.addClass("kd-workspace-host"); setting.settingEl.empty(); this.renderWorkspace(setting.settingEl);
-      return () => this.cleanup();
-    } }];
+    return [
+      { name: t("enabled"), desc: t("enabledDesc"), render: setting => {
+        setting.addToggle(toggle => toggle.setValue(this.plugin.settings.enabled).onChange(value => {
+          this.plugin.settings.enabled = value; this.changed(); this.refreshDomState();
+        }));
+      } },
+      { name: t("sourceMode"), desc: t("sourceModeDesc"), visible: () => this.plugin.settings.enabled === true, render: setting => {
+        setting.addToggle(toggle => toggle.setValue(this.plugin.settings.staticHighlighter.decorateInSourceMode === true).onChange(value => {
+          this.plugin.settings.staticHighlighter.decorateInSourceMode = value; this.changed();
+        }));
+      } },
+      { type: "page", name: localize("Decoration rules", "装饰规则"), desc: localize("Rules, groups, import and export.", "规则、分组与导入导出。"), page: () => new DecorationRulesPage(this) },
+    ];
   }
-  display(): void { this.refresh(); }
   refresh(): void {
-    const current = this.layout?.closest<HTMLElement>(".keyword-decorator-settings");
-    const root = current?.isConnected ? current : this.containerEl;
-    root.empty(); this.renderWorkspace(root);
+    this.refreshDomState(); this.rulesPage?.display();
   }
-  hide(): void { this.cleanup(); void this.plugin.saveSettings().catch(() => new Notice(t("failed"))); }
+  hide(): void { this.rulesPage = null; this.cleanup(); void this.plugin.saveSettings().catch(() => new Notice(t("failed"))); }
+  closeRulesPage(page: DecorationRulesPage): void { if (this.rulesPage === page) this.hide(); }
   private cleanup() {
     this.groupClickCleanup?.(); this.groupClickCleanup = undefined;
     this.reorderCleanup?.(); this.reorderCleanup = undefined;
     this.editorCleanup?.(); this.editorCleanup = undefined;
     this.documentCleanup?.(); this.documentCleanup = undefined;
+    this.status = undefined; this.rows.clear(); this.headers.clear();
   }
-  private renderWorkspace(root: HTMLElement) {
-    this.cleanup(); root.addClass("keyword-decorator-settings");
+  renderRulesInto(root: HTMLElement, page: DecorationRulesPage) {
+    this.cleanup(); this.rulesPage = page; root.empty(); root.addClass("keyword-decorator-settings");
     this.documentCleanup = this.plugin.registerSettingsDocument(root.ownerDocument);
-    const toolbar = root.createDiv("kd-toolbar"), enable = toolbar.createDiv("kd-master");
-    new ToggleComponent(enable).setValue(this.plugin.settings.enabled).onChange(value => {
-      this.plugin.settings.enabled = value; this.changed(); root.toggleClass("is-paused", !value);
-    }).toggleEl.setAttribute("aria-label", t("enabled"));
-    const label = enable.createDiv(); label.createDiv({ cls: "kd-master-title", text: t("enabled") });
-    label.createDiv({ cls: "kd-caption", text: t("enabledDesc") });
     root.toggleClass("is-paused", !this.plugin.settings.enabled);
-    const actions = toolbar.createDiv("kd-actions");
+    const actions = root.createDiv("kd-toolbar").createDiv("kd-actions");
     this.status = actions.createDiv({ cls: "kd-save-status", text: t("autosave"), attr: { role: "status", "aria-live": "polite" } });
     iconButton(actions, "download", t("import"), () => new ImportModal(this.app, this.plugin).open());
     iconButton(actions, "upload", t("export"), () => new ExportModal(this.app, this.plugin, "All", this.plugin.settings.staticHighlighter.queries, this.plugin.settings).open());
-    new Setting(root).setName(t("sourceMode")).setDesc(t("sourceModeDesc"))
-      .addToggle(toggle => toggle.setValue(this.plugin.settings.staticHighlighter.decorateInSourceMode === true)
-        .onChange(value => { this.plugin.settings.staticHighlighter.decorateInSourceMode = value; this.changed(); }));
     root.createDiv({ cls: "kd-paused-banner", text: `${t("paused")} · ${t("pausedDesc")}` });
     this.layout = root.createDiv("kd-layout");
     const sidebar = this.layout.createDiv("kd-sidebar"), heading = sidebar.createDiv("kd-list-heading");
@@ -86,7 +86,7 @@ export class SettingTab extends PluginSettingTab {
     iconButton(buttons, "folder-input", localize("Import groups", "导入分组"), () => new ImportModal(this.app, this.plugin, true).open());
     const search = new TextComponent(sidebar).setPlaceholder(t("search")).setValue(this.filter).onChange(value => { this.filter = value; this.renderList(); });
     search.inputEl.addClass("kd-filter"); search.inputEl.setAttribute("aria-label", t("search"));
-    this.list = sidebar.createDiv({ cls: "kd-rule-list", attr: { role: "list", "aria-label": localize("Rules · Ctrl/Cmd click to select, Shift click for a range", "规则 · Ctrl/Cmd 点击多选，Shift 点击选择范围") } });
+    this.list = sidebar.createDiv({ cls: "kd-rule-list", attr: { role: "list" } });
     sidebar.createDiv({ cls: "kd-caption kd-priority", text: t("priority") });
     this.editor = this.layout.createDiv("kd-editor");
     const config = this.plugin.settings.staticHighlighter;
@@ -219,7 +219,6 @@ export class SettingTab extends PluginSettingTab {
           const title = header.createEl("button", { cls: "kd-group-title", text: group.name, attr: { "aria-label": localize(`Edit group: ${group.name}`, `编辑分组：${group.name}`) } });
           title.addEventListener("click", event => this.queueGroupSelection(groupId, event));
           if (!builtin) {
-            title.setAttribute("title", localize("Click to edit · Double-click to expand or collapse", "单击编辑 · 双击展开或折叠"));
             title.addEventListener("dblclick", event => { event.preventDefault(); this.toggleGroupCollapsed(groupId); });
           }
           header.createSpan({ cls: "kd-count", text: builtin ? localize("Built-in", "内置") : String(ids.length) });
@@ -297,7 +296,6 @@ export class SettingTab extends PluginSettingTab {
     const config = this.plugin.settings.staticHighlighter, builtin = getBuiltinEmojiGroup(config, id);
     const header = this.editor.createDiv("kd-editor-toolbar");
     iconButton(header, "panel-right-close", localize("Collapse settings", "收起设置"), () => this.collapseEditor()).buttonEl.addClass("kd-back");
-    header.createSpan({ cls: "kd-caption", text: builtin ? localize("Built-in group", "内置分组") : localize("Group appearance", "分组样式") });
     const buttons = header.createDiv("kd-actions");
     iconButton(buttons, "folder-output", localize("Export group", "导出分组"), () => new ExportModal(this.app, this.plugin, group.name, config.queries, this.plugin.settings, id).open());
     const order = repairGroupOrder(this.plugin.settings.staticHighlighter), index = order.indexOf(id);
@@ -397,4 +395,11 @@ export class SettingTab extends PluginSettingTab {
       this.selectedGroupId = null; this.editing = true; this.editorCollapsed = false; this.refresh(); this.changed();
     }, template, config.queryOrder).open();
   }
+}
+
+class DecorationRulesPage extends SettingPage {
+  title = localize("Decoration rules", "装饰规则");
+  constructor(private readonly tab: SettingTab) { super(); }
+  display(): void { this.tab.renderRulesInto(this.containerEl, this); }
+  hide(): void { this.tab.closeRulesPage(this); }
 }
