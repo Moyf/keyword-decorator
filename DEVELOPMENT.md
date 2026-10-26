@@ -13,6 +13,8 @@ The plugin decorates matches in CodeMirror 6 and Reading view. It never rewrites
 
 The settings opener retries briefly if a plugin reload and CLI request overlap. `NO.hotreload`, when present in an existing vault, is preserved.
 
+Production builds (`npm run build`) additionally mirror `dist/main.js` to the repository root as `main.js`, next to the committed `manifest.json` and `styles.css`, matching the layout Obsidian's official release tooling expects. The root copy is gitignored and regenerated on every build.
+
 ## Code map
 
 | Module | Responsibility |
