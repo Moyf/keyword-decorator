@@ -32,6 +32,14 @@ async function copyStaticAssets() {
   }
 }
 
+// Obsidian's official review and release tooling expects the bundle at the
+// repository root, next to manifest.json and styles.css. Keep dist/ for the
+// local Hot Reload flow and mirror main.js to the root in production builds.
+async function copyBundleToRoot() {
+  if (!prod) return;
+  await copyFile(path.join(process.cwd(), distDir, "main.js"), path.join(process.cwd(), "main.js"));
+}
+
 esbuild
   .build({
     banner: {
@@ -86,6 +94,7 @@ esbuild
               return;
             }
             await copyStaticAssets();
+            await copyBundleToRoot();
           });
         },
       },
