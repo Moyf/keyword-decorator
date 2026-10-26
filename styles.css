@@ -27,33 +27,24 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100%;
+  flex: 1;
   min-width: 0;
   min-height: 0;
   color: var(--text-normal);
   padding: 6px;
   box-sizing: border-box;
 }
-.vertical-tab-content:has(.keyword-decorator-settings) { display: flex; flex-direction: column; overflow: hidden; padding: 20px 24px; }
-.setting-group:has(.keyword-decorator-settings) { background: transparent; box-shadow: none; border: 0; }
-.vertical-tab-content > .setting-group:has(.keyword-decorator-settings),
-.setting-group > .setting-items:has(> .keyword-decorator-settings) { display: flex; flex-direction: column; flex: 1; min-height: 0; background: transparent; border: 0; box-shadow: none; }
-.setting-items > .keyword-decorator-settings.kd-workspace-host.setting-item { padding: 8px; border: 0; flex: 1; background: transparent; }
+.setting-page.vertical-tab-content:has(> .keyword-decorator-settings) { display: flex; flex-direction: column; overflow: hidden; }
+.setting-page:has(> .keyword-decorator-settings) > .setting-page-titlebar { flex-shrink: 0; }
 .kd-toolbar,
-.kd-master,
 .kd-actions,
 .kd-list-actions,
 .kd-editor-toolbar,
 .kd-hide-row { display: flex; align-items: center; gap: 8px; }
 .kd-toolbar { align-self: stretch; justify-content: space-between; padding-block: 4px 12px; gap: 16px; flex-wrap: wrap; flex-shrink: 0; }
-.kd-master { gap: 12px; min-width: 0; }
-.kd-master > div { min-width: 0; }
-.kd-master .checkbox-container { flex-shrink: 0; }
 .kd-actions { flex-shrink: 0; }
 .keyword-decorator-settings button.kd-icon-button { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex: 0 0 var(--kd-icon-button-size, var(--input-height, 30px)); width: var(--kd-icon-button-size, var(--input-height, 30px)); min-width: var(--kd-icon-button-size, var(--input-height, 30px)); height: var(--kd-icon-button-size, var(--input-height, 30px)); padding: 0; }
-.kd-master-title { font-weight: var(--font-semibold); overflow-wrap: anywhere; }
 .kd-caption { color: var(--text-muted); font-size: var(--font-ui-smaller); line-height: 1.55; overflow-wrap: anywhere; }
-.kd-master .kd-caption { margin-top: 3px; }
 .kd-save-status { color: var(--text-muted); font-size: var(--font-ui-smaller); line-height: 1.5; overflow-wrap: anywhere; }
 .kd-toolbar > .kd-actions { flex-shrink: 1; min-width: 0; margin-inline-start: auto; }
 .kd-paused-banner { display: none; margin-bottom: 16px; padding: 10px 12px; border-radius: var(--radius-s); background: var(--background-secondary); color: var(--text-muted); font-size: var(--font-ui-small); }
@@ -102,6 +93,9 @@
 .kd-preview-area { background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); margin-block: 10px 16px; padding: 10px 12px; }
 .kd-live-preview { min-height: 24px; max-height: 180px; display: flex; align-items: center; overflow: auto; overflow-wrap: anywhere; }
 .kd-preview { color: var(--kd-text); }
+.kd-emoji-preview { flex-wrap: wrap; gap: 10px 14px; }
+.kd-emoji-sample { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.kd-emoji-glyph { color: var(--kd-text); background: var(--kd-bg); font-weight: var(--kd-weight); font-style: var(--kd-style); text-decoration: var(--kd-decoration); line-height: 1; }
 .kd-preview-text { color: var(--kd-text); background: var(--kd-bg); font-weight: var(--kd-weight); font-style: var(--kd-style); text-decoration: var(--kd-decoration); border-radius: 3px; padding: 0 2px; overflow-wrap: anywhere; }
 .kd-section { margin-block: 22px; }
 .kd-section-heading { font-size: var(--font-ui-small); font-weight: var(--font-semibold); margin-bottom: 12px; }
@@ -228,7 +222,6 @@
   .kd-color-grid { grid-template-columns: 1fr; gap: 0; }
   .kd-list-actions { gap: 6px; }
   .kd-list-actions > button { padding-inline: 8px; }
-  .kd-master .kd-caption { display: none; }
 }
 
 @container keyword-decorator (max-width: 620px) {
@@ -237,7 +230,6 @@
   .kd-layout.is-editing .kd-sidebar { display: none; }
   .kd-layout.is-editing .kd-editor { display: block; }
   .kd-back { display: inline-flex; }
-  .kd-master .kd-caption { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
