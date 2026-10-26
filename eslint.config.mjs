@@ -19,6 +19,13 @@ export default defineConfig([
   ...obsidianRecommended,
   {
     files: ["src/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+    },
     languageOptions: {
       parserOptions: {
         project: "./tsconfig.json",
