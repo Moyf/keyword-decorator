@@ -37,11 +37,13 @@ export class SettingTab extends PluginSettingTab {
   private documentCleanup?: () => void;
   private groupClickCleanup?: () => void;
   private rulesPage: DecorationRulesPage | null = null;
+  private saveOnHide = false;
   constructor(app: App, public plugin: DynamicHighlightsPlugin) { super(app, plugin); }
 
   getSettingDefinitions(): SettingDefinitionItem[] {
     return [
       { name: t("enabled"), desc: t("enabledDesc"), render: setting => {
+        this.saveOnHide = true;
         setting.addToggle(toggle => toggle.setValue(this.plugin.settings.enabled).onChange(value => {
           this.plugin.settings.enabled = value; this.changed(); this.refreshDomState();
         }));
@@ -57,7 +59,13 @@ export class SettingTab extends PluginSettingTab {
   refresh(): void {
     this.refreshDomState(); this.rulesPage?.display();
   }
-  hide(): void { this.rulesPage = null; this.cleanup(); void this.plugin.saveSettings().catch(() => new Notice(t("failed"))); }
+  hide(): void {
+    this.rulesPage = null; this.cleanup();
+    // Closing settings can hide both the page and its tab. Save once until rendered or edited again.
+    if (!this.saveOnHide) return;
+    this.saveOnHide = false;
+    void this.plugin.saveSettings().catch(() => new Notice(t("failed")));
+  }
   closeRulesPage(page: DecorationRulesPage): void { if (this.rulesPage === page) this.hide(); }
   private cleanup() {
     this.groupClickCleanup?.(); this.groupClickCleanup = undefined;
@@ -67,7 +75,7 @@ export class SettingTab extends PluginSettingTab {
     this.status = undefined; this.rows.clear(); this.headers.clear();
   }
   renderRulesInto(root: HTMLElement, page: DecorationRulesPage) {
-    this.cleanup(); this.rulesPage = page; root.empty(); root.addClass("keyword-decorator-settings");
+    this.cleanup(); this.rulesPage = page; this.saveOnHide = true; root.empty(); root.addClass("keyword-decorator-settings");
     this.documentCleanup = this.plugin.registerSettingsDocument(root.ownerDocument);
     root.toggleClass("is-paused", !this.plugin.settings.enabled);
     const actions = root.createDiv("kd-toolbar").createDiv("kd-actions");
@@ -102,6 +110,7 @@ export class SettingTab extends PluginSettingTab {
     this.renderList(); this.renderEditor(); this.syncVisibility();
   }
   changed() {
+    this.saveOnHide = true;
     const revision = ++this.revision;
     this.status?.setText(t("saving"));
     void this.plugin.settingsChanged().then(() => { if (revision === this.revision) this.status?.setText(t("saved")); }, () => this.status?.setText(t("failed")));

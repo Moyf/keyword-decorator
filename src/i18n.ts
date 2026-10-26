@@ -1,4 +1,4 @@
-import { getLanguage, requireApiVersion } from "obsidian";
+import { getLanguage } from "obsidian";
 
 const en = {
   enabled: "Enable decorations", enabledDesc: "Apply rules in the editor and reading view.",
@@ -35,6 +35,6 @@ export function t(key: MessageKey): string {
 }
 
 export function localize(english: string, chinese: string): string {
-  const language = requireApiVersion("1.8.7") ? getLanguage() : "en";
+  const language = getLanguage();
   return language.startsWith("zh") ? chinese : english;
 }
