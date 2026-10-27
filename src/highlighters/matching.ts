@@ -149,11 +149,12 @@ export function findMatchesInRanges(text: string, ranges: readonly { from: numbe
 /** First resolved match per rule across a complete document, for rules that decorate only once. */
 export function firstMatchesByRule(text: string, rules: CompiledRule[], accepts?: (match: TextMatch) => boolean): Map<string, TextMatch> {
   const first = new Map<string, TextMatch>();
-  if (!rules.some(item => item.rule.decorateOnce)) return first;
-  for (const match of findMatches(text, rules)) {
-    if (!match.rule.decorateOnce || first.has(match.ruleId)) continue;
-    if (accepts && !accepts(match)) continue;
-    first.set(match.ruleId, match);
+  // Each once rule gets its own budget. Ordinary rules (or earlier once rules)
+  // must not consume the document scan's shared candidate limit.
+  for (const rule of rules) {
+    if (!rule.rule.decorateOnce) continue;
+    const match = findMatches(text, [rule], accepts)[0];
+    if (match) first.set(rule.ruleId, match);
   }
   return first;
 }
@@ -162,21 +163,29 @@ export interface FirstOccurrenceTarget { text: string; ordinal: number }
 
 /**
  * Keep only the occurrence that mirrors the document-level first match.
- * `blockBase` is the number of raw occurrences of the target text before this block in the source,
- * or null when the block cannot be located in the source (then every occurrence stays visible).
+ * The section offset is measured in source characters. Convert it to an
+ * occurrence count separately for each target text; an unknown offset keeps
+ * every occurrence visible.
  */
-export function filterFirstOccurrenceMatches(matches: TextMatch[], blockText: string, targets: Map<string, FirstOccurrenceTarget>, blockBase: number | null): TextMatch[] {
-  if (!targets.size) return matches;
+export function filterFirstOccurrenceMatches(matches: TextMatch[], blockText: string, targets: Map<string, FirstOccurrenceTarget>, source: string, sectionCharOffset: number | null): TextMatch[] {
+  if (!targets.size || sectionCharOffset === null) return matches;
+  const baseByText = new Map<string, number>();
   return matches.filter(match => {
     if (!match.rule.decorateOnce) return true;
     const target = targets.get(match.ruleId);
-    if (!target || blockBase === null) return true;
+    if (!target) return true;
     if (blockText.slice(match.from, match.to) !== target.text) return false;
-    return blockBase + countBefore(blockText, target.text, match.from) === target.ordinal;
+    let base = baseByText.get(target.text);
+    if (base === undefined) {
+      base = countOccurrencesBefore(source, target.text, sectionCharOffset);
+      baseByText.set(target.text, base);
+    }
+    return base +
+      countOccurrencesBefore(blockText, target.text, match.from) === target.ordinal;
   });
 }
 
-function countBefore(text: string, needle: string, end: number): number {
+export function countOccurrencesBefore(text: string, needle: string, end: number): number {
   if (!needle) return 0;
   let count = 0;
   let from = 0;

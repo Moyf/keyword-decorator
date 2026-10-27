@@ -2,6 +2,12 @@
 export const MAX_IMAGE_DIMENSION = 512;
 export const MAX_IMAGE_EM_DIMENSION = 32;
 
+// JSON Schema has no regexp flags or numeric coercion: spell out the units
+// and bounded numeric forms accepted by parseImageSize (including leading zeros).
+const pxAmount = "0*(?:[1-9]\\d?|[1-4]\\d{2}|50\\d|51[0-2])(?:\\.0+)?";
+const emAmount = "(?:0+\\.\\d*[1-9]\\d*|0*(?:[1-9]|[12]\\d|3[01])(?:\\.\\d+)?|0*32(?:\\.0+)?)";
+export const IMAGE_SIZE_PATTERN = `^\\s*(?:${pxAmount}(?:[pP][xX])?|${emAmount}[eE][mM])\\s*$`;
+
 export interface ImageSize {
   amount: number;
   unit: "px" | "em";

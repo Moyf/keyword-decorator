@@ -1,14 +1,14 @@
 import { Extension } from "@codemirror/state";
 import { MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownView, Plugin, TAbstractFile, TFile } from "obsidian";
 import { buildStyles, staticHighlighterExtension } from "./highlighters/static";
-import { compileRules, CompiledRule, filterFirstOccurrenceMatches, findMatches, FirstOccurrenceTarget, TextMatch } from "./highlighters/matching";
+import { compileRules, CompiledRule, countOccurrencesBefore, filterFirstOccurrenceMatches, findMatches, firstMatchesByRule, FirstOccurrenceTarget, TextMatch } from "./highlighters/matching";
 import addIcons from "./icons/customIcons";
 import { clearImageCache, createPrefixNode } from "./markers";
 import { DynamicHighlightsSettings, normalizeSettings } from "./settings/settings";
 import { SettingTab } from "./settings/ui";
 import { getEffectiveQueries } from "./settings/groups";
 import { installDefaultPresets } from "./settings/presets";
-import { isReadingBody, isReadingText, READING_EXCLUDED_SELECTOR } from "./highlighters/scope";
+import { excludedMarkdownLineRanges, isReadingBody, isReadingText, overlapsExcludedRange, READING_EXCLUDED_SELECTOR } from "./highlighters/scope";
 import { scopeCustomCSS } from "./highlighters/custom-css";
 
 interface CustomCSS { css: string; enabled: boolean }
@@ -322,8 +322,9 @@ export default class DynamicHighlightsPlugin extends Plugin {
       if (!(file instanceof TFile)) throw new Error("The note is not readable.");
       const source = await this.app.vault.cachedRead(file);
       const targets = new Map<string, FirstOccurrenceTarget>();
-      for (const match of findMatches(source, this.getReadingRules())) {
-        if (!match.rule.decorateOnce || targets.has(match.ruleId)) continue;
+      const excluded = excludedMarkdownLineRanges(source);
+      for (const match of firstMatchesByRule(source, this.getReadingRules(),
+        match => !overlapsExcludedRange(excluded, match.from, match.to)).values()) {
         const text = source.slice(match.from, match.to);
         targets.set(match.ruleId, { text, ordinal: countOccurrencesBefore(source, text, match.from) });
       }
@@ -344,7 +345,8 @@ export default class DynamicHighlightsPlugin extends Plugin {
     if (!compiledRules.length) return;
     const doc = rootEl.ownerDocument;
     let onceTargets: Map<string, FirstOccurrenceTarget> | undefined;
-    let onceBase: number | null = null;
+    let onceSource = "";
+    let sectionCharOffset: number | null = null;
     if (ctx?.sourcePath && compiledRules.some(rule => rule.rule.decorateOnce)) {
       const state = this.readingOnceState(ctx.sourcePath);
       if (!state.ready) {
@@ -355,20 +357,25 @@ export default class DynamicHighlightsPlugin extends Plugin {
       }
       if (!state.data.failed) {
         onceTargets = state.data.targets;
-        onceBase = onceSectionBase(ctx, rootEl, state.data.lineStarts, state.data.source);
+        onceSource = state.data.source;
+        sectionCharOffset = onceSectionCharOffset(ctx, rootEl, state.data.lineStarts);
       }
     }
     const blockSelector = "p,h1,h2,h3,h4,h5,h6,li,blockquote,td,th";
     const blocks = Array.from(rootEl.querySelectorAll<HTMLElement>(blockSelector));
     if (rootEl.matches(blockSelector)) blocks.unshift(rootEl);
     const excluded = READING_EXCLUDED_SELECTOR;
+    const renderedOnceRules = new Set<string>();
     for (const block of blocks) {
       if (!isReadingText(block)) continue;
       const flat = flattenReadingBlock(block, blockSelector, excluded);
       if (!flat.text) continue;
       const found = findMatches(flat.text, compiledRules, match => !flat.text.slice(match.from, match.to).includes("\u0000"));
-      const matches = onceTargets ? filterFirstOccurrenceMatches(found, flat.text, onceTargets, onceBase) : found;
+      const located = onceTargets ? filterFirstOccurrenceMatches(found, flat.text, onceTargets, onceSource, sectionCharOffset) : found;
+      const matches = located.filter(match => !match.rule.decorateOnce || !onceTargets?.has(match.ruleId) ||
+        sectionCharOffset === null || !renderedOnceRules.has(match.ruleId));
       if (!matches.length) continue;
+      for (const match of matches) if (match.rule.decorateOnce) renderedOnceRules.add(match.ruleId);
       const wholeLines = new Map<number, TextMatch>();
       const hiddenMatches = new Set<string>();
       const hiddenElements = new Map<string, HTMLElement[]>();
@@ -498,17 +505,6 @@ function lineStart(text: string, offset: number) {
   return offset <= 0 ? 0 : text.lastIndexOf("\n", offset - 1) + 1;
 }
 
-function countOccurrencesBefore(text: string, needle: string, end: number): number {
-  if (!needle) return 0;
-  let count = 0;
-  let from = 0;
-  while ((from = text.indexOf(needle, from)) !== -1 && from < end) {
-    count++;
-    from += needle.length;
-  }
-  return count;
-}
-
 function lineStartOffsets(text: string): number[] {
   const starts = [0];
   for (let index = text.indexOf("\n"); index !== -1; index = text.indexOf("\n", index + 1)) starts.push(index + 1);
@@ -516,11 +512,11 @@ function lineStartOffsets(text: string): number[] {
 }
 
 /** Character offset of the rendered section's first source line, or null when it cannot be located. */
-function onceSectionBase(ctx: MarkdownPostProcessorContext, rootEl: HTMLElement, lineStarts: number[], source: string): number | null {
+function onceSectionCharOffset(ctx: MarkdownPostProcessorContext, rootEl: HTMLElement, lineStarts: number[]): number | null {
   const section = typeof ctx.getSectionInfo === "function" ? ctx.getSectionInfo(rootEl) : null;
   const startLine = section?.lineStart;
-  if (startLine === undefined || startLine < 0) return null;
-  return startLine < lineStarts.length ? lineStarts[startLine] : source.length;
+  if (startLine === undefined || !Number.isInteger(startLine) || startLine < 0) return null;
+  return lineStarts[startLine] ?? null;
 }
 
 function internalClassName(ruleId: string) {

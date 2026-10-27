@@ -48,6 +48,7 @@
     "eslint": "^9.39.5",
     "eslint-plugin-obsidianmd": "^0.4.2",
     "globals": "^16.4.0",
+    "linkedom": "0.18.12",
     "monkey-around": "^2.2.0",
     "obsidian": "1.14.4",
     "regexp-match-indices": "^1.0.2",

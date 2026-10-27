@@ -1,3 +1,5 @@
+import { IMAGE_SIZE_PATTERN } from "../image-size";
+
 export const queriesSchema = {
   $schema: "http://json-schema.org/draft-07/schema#",
   additionalProperties: {
@@ -65,19 +67,19 @@ export const queriesSchema = {
         imageWidth: {
           anyOf: [
             { type: "integer", minimum: 1, maximum: 512 },
-            { type: "string", pattern: "^\\d+(?:\\.\\d+)?(?:px|em)?$" },
+            { type: "string", pattern: IMAGE_SIZE_PATTERN },
           ],
         },
         imageHeight: {
           anyOf: [
             { type: "integer", minimum: 1, maximum: 512 },
-            { type: "string", pattern: "^\\d+(?:\\.\\d+)?(?:px|em)?$" },
+            { type: "string", pattern: IMAGE_SIZE_PATTERN },
           ],
         },
         imageCornerRadius: {
           anyOf: [
             { type: "integer", minimum: 1, maximum: 512 },
-            { type: "string", pattern: "^\\d+(?:\\.\\d+)?(?:px|em)?$" },
+            { type: "string", pattern: IMAGE_SIZE_PATTERN },
           ],
         },
         queryMode: {

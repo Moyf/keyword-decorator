@@ -4,7 +4,7 @@ import { EditorState, StateField } from "@codemirror/state";
 import { Language, lineClassNodeProp, tokenClassNodeProp } from "@codemirror/language";
 import { NodeType, Tree } from "@lezer/common";
 import { editorInfoField, editorLivePreviewField } from "obsidian";
-import { canDecorateEditor, editorTextRanges, excludedEditorRanges, overlapsExcludedRange } from "../src/highlighters/scope";
+import { canDecorateEditor, editorTextRanges, excludedEditorRanges, excludedMarkdownLineRanges, overlapsExcludedRange } from "../src/highlighters/scope";
 import { normalizeSettings } from "../src/settings/settings";
 import { ExportModal } from "../src/settings/export";
 import { applySettingsImport, parseSettingsImport } from "../src/settings/import";
@@ -101,4 +101,35 @@ void test("source mode opt-in survives full export and legacy rule imports", () 
   assert.equal(applySettingsImport(legacy, current, "replace").staticHighlighter.decorateInSourceMode, true);
   assert.equal(applySettingsImport({ ...legacy, decorateInSourceMode: false }, current, "merge").staticHighlighter.decorateInSourceMode, false);
   assert.ok(parseSettingsImport({ queries: {}, decorateInSourceMode: "true" }).errors.length);
+});
+
+void test("source and editor share CRLF frontmatter and backtick/quoted-tilde line exclusions", () => {
+  const source = "\uFEFF---\r\ntitle: key\r\n---\r\nkey\r\n```md\r\nkey\r\n````\r\nkey\r\n> ~~~\r\n> key\r\n> ~~~~\r\nkey";
+  const sourceRanges = excludedMarkdownLineRanges(source);
+  // CodeMirror normalizes CRLF, so compare corresponding occurrences rather
+  // than reusing source character offsets in the editor's normalized text.
+  const editorText = source.replace(/\r\n/g, "\n");
+  const editorRanges = excludedEditorRanges(stateWithTokens(editorText, [
+    { from: 0, to: editorText.indexOf("\nkey\n```") + 1, classes: "HyperMD-frontmatter", line: true },
+    { from: editorText.indexOf("```md"), to: editorText.indexOf("````") + 5, classes: "HyperMD-codeblock", line: true },
+    { from: editorText.indexOf("> ~~~"), to: editorText.indexOf("> ~~~~") + 7, classes: "HyperMD-codeblock", line: true },
+  ]), 0, editorText.length);
+  const protectedMatches: boolean[] = [];
+  let editorFrom = -1;
+  for (let from = source.indexOf("key"); from !== -1; from = source.indexOf("key", from + 3)) {
+    editorFrom = editorText.indexOf("key", editorFrom + 1);
+    const excluded = overlapsExcludedRange(sourceRanges, from, from + 3);
+    protectedMatches.push(excluded);
+    assert.equal(overlapsExcludedRange(editorRanges, editorFrom, editorFrom + 3), excluded);
+  }
+  assert.deepEqual(protectedMatches, [true, false, true, false, true, false]);
+});
+
+void test("source exclusions require matching fence delimiters and protect unclosed blocks", () => {
+  const source = "```txt\nkey\n~~~\nkey\n```\nkey";
+  const ranges = excludedMarkdownLineRanges(source);
+  assert.equal(overlapsExcludedRange(ranges, source.indexOf("key"), source.indexOf("key") + 3), true);
+  assert.equal(overlapsExcludedRange(ranges, source.lastIndexOf("key"), source.length), false);
+  assert.deepEqual(excludedMarkdownLineRanges("intro\n~~~\nkey"), [{ from: 6, to: 13 }]);
+  assert.deepEqual(excludedMarkdownLineRanges("intro\n---\nkey"), []);
 });

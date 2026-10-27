@@ -129,14 +129,23 @@ export function renderAppearance(container: HTMLElement, app: App, style: RuleAp
         input.addEventListener("input", () => {
           const text = input.value.trim();
           let valid = true;
-          if (key === "imageCornerRadius" && !text) delete style[key];
-          else {
+          if (!text) {
+            if (key === "imageCornerRadius") delete style[key];
+            else style[key] = 24;
+          } else {
             const size = parseImageSize(text);
             if (size) style[key] = toStoredImageSize(size);
             else valid = false;
           }
           input.setAttribute("aria-invalid", String(!valid));
           if (valid) changed();
+        });
+        // Keep incomplete drafts editable (for example "1."), but never leave
+        // an invalid value looking as though it was saved after focus leaves.
+        input.addEventListener("blur", () => {
+          const value = effective()[key];
+          input.value = value === undefined ? fallback : String(value);
+          input.setAttribute("aria-invalid", "false");
         });
         reset(sizeField.wrap, [key]);
       }

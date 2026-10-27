@@ -160,7 +160,8 @@ const staticHighlighter = ViewPlugin.fromClass(
         const to = match.to;
         if (match.rule.decorateOnce) {
           const target = onceTargets.get(match.ruleId);
-          if (!target || target.from !== from || target.to !== to) continue;
+          // An exhausted/uncertain source scan must not hide the entire rule.
+          if (target && (target.from !== from || target.to !== to)) continue;
         }
         const startLine = state.doc.lineAt(from);
         const endLine = state.doc.lineAt(Math.max(from, to - 1));

@@ -38,12 +38,12 @@ void test("filterFirstOccurrenceMatches maps block occurrences onto document ord
   const rules = compileRules({ doctor: { query: "博士", regex: false, decorateOnce: true } }, ["doctor"]);
   const targets = new Map([["doctor", { text: "博士", ordinal: 0 }]]);
   const firstBlockText = "博士：一";
-  assert.deepEqual(filterFirstOccurrenceMatches(findMatches(firstBlockText, rules), firstBlockText, targets, 0).length, 1);
+  assert.deepEqual(filterFirstOccurrenceMatches(findMatches(firstBlockText, rules), firstBlockText, targets, "", 0).length, 1);
   // The third block starts after two earlier occurrences (base 2), so it is not the document's first.
   const thirdBlockText = "博士：三";
-  assert.deepEqual(filterFirstOccurrenceMatches(findMatches(thirdBlockText, rules), thirdBlockText, targets, 2).length, 0);
+  assert.deepEqual(filterFirstOccurrenceMatches(findMatches(thirdBlockText, rules), thirdBlockText, targets, "博士 博士", 5).length, 0);
   // Without section information every occurrence stays visible instead of losing decorations.
-  assert.deepEqual(filterFirstOccurrenceMatches(findMatches(thirdBlockText, rules), thirdBlockText, targets, null).length, 1);
+  assert.deepEqual(filterFirstOccurrenceMatches(findMatches(thirdBlockText, rules), thirdBlockText, targets, "", null).length, 1);
 });
 
 void test("filterFirstOccurrenceMatches ignores other rules and text mismatches", () => {
@@ -53,11 +53,11 @@ void test("filterFirstOccurrenceMatches ignores other rules and text mismatches"
   }, ["doctor", "kelsi"]);
   const targets = new Map([["doctor", { text: "博士", ordinal: 0 }]]);
   const blockText = "博士与凯尔希";
-  const kept = filterFirstOccurrenceMatches(findMatches(blockText, rules), blockText, targets, 0);
+  const kept = filterFirstOccurrenceMatches(findMatches(blockText, rules), blockText, targets, "", 0);
   assert.deepEqual(kept.map(match => match.ruleId), ["doctor", "kelsi"]);
   // A once-rule match rendering different text than the document-level target is dropped.
   const multi = compileRules({ pair: { query: "alpha\nbeta", queryMode: "keywords", regex: false, decorateOnce: true } }, ["pair"]);
-  assert.deepEqual(filterFirstOccurrenceMatches(findMatches("beta gamma", multi), "beta gamma", new Map([["pair", { text: "alpha", ordinal: 0 }]]), 0).length, 0);
+  assert.deepEqual(filterFirstOccurrenceMatches(findMatches("beta gamma", multi), "beta gamma", new Map([["pair", { text: "alpha", ordinal: 0 }]]), "", 0).length, 0);
 });
 
 void test("image sizes accept px and em and normalize into the stored form", () => {
@@ -96,4 +96,17 @@ void test("group styles normalize once flags and em sizes while inheritance keep
   assert.equal(effective.imageWidth, "2em");
   const plain = getEffectiveQueries(normalizeSettings({ staticHighlighter: { queries: { lone: { query: "word", regex: false } }, queryOrder: ["lone"] } }).staticHighlighter).lone;
   assert.equal(plain.decorateOnce, false);
+});
+
+void test("once target budgets are independent even when earlier once rules consume 5000 candidates", () => {
+  const queries: Record<string, { query: string; regex: boolean; decorateOnce: boolean }> = {};
+  const parts: string[] = [];
+  for (let index = 0; index < 6; index++) {
+    queries[`rule-${index}`] = { query: `word-${index}`, regex: false, decorateOnce: true };
+    parts.push(`${`word-${index} `.repeat(1000)}\n`);
+  }
+  const text = parts.join("");
+  const targets = firstMatchesByRule(text, compileRules(queries, Object.keys(queries)));
+  assert.equal(targets.size, 6);
+  for (const [id, target] of targets) assert.equal(target.from, text.indexOf(queries[id].query));
 });
