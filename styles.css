@@ -226,8 +226,8 @@
 }
 
 /* A ~900px settings window leaves ~610px after the host sidebar and padding.
-   Keep two usable ~273px columns above 560px; narrow windows still use one. */
-@container keyword-decorator (max-width: 560px) {
+   Keep two usable ~273px columns above 480px; narrow windows still use one. */
+@container keyword-decorator (max-width: 480px) {
   .kd-layout { grid-template-columns: minmax(0, 1fr); }
   .kd-editor { display: none; border: 0; padding-inline-start: 3px; }
   .kd-layout.is-editing .kd-sidebar { display: none; }
