@@ -9,7 +9,7 @@ const distDirectory = join(repositoryDirectory, "dist");
 const manifestPath = join(distDirectory, "manifest.json");
 
 if (!existsSync(manifestPath)) {
-  throw new Error(`Build output is missing: ${manifestPath}. Run npm run build first.`);
+  throw new Error(`Build output is missing: ${manifestPath}. Run pnpm run build first.`);
 }
 
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));

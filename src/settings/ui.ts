@@ -408,7 +408,10 @@ export class SettingTab extends PluginSettingTab {
 
 class DecorationRulesPage extends SettingPage {
   title = localize("Decoration rules", "装饰规则");
-  constructor(private readonly tab: SettingTab) { super(); }
+  constructor(private readonly tab: SettingTab) {
+    super();
+    this.rootEl.addClass("keyword-decorator-rules-page");
+  }
   display(): void { this.tab.renderRulesInto(this.containerEl, this); }
   hide(): void { this.tab.closeRulesPage(this); }
 }

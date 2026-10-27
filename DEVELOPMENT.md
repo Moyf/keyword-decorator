@@ -4,16 +4,16 @@ The plugin decorates matches in CodeMirror 6 and Reading view. It never rewrites
 
 ## Local setup
 
-1. Run `npm install`.
+1. Run `pnpm install`.
 2. Copy `.env.example` to `.env` and set `VAULT_PATH` to an existing vault. Process environment variables take precedence; otherwise the copy script searches this repository and parent directories for `.env`.
-3. Run `npm run test` and `npm run lint`.
-4. Run `npm run build:local`, which type-checks, bundles into `dist/`, and copies the plugin assets to the configured vault. Existing `data.json` is preserved.
+3. Run `pnpm run test` and `pnpm run lint`.
+4. Run `pnpm run build:local`, which type-checks, bundles into `dist/`, and copies the plugin assets to the configured vault. Existing `data.json` is preserved.
 5. Allow Hot Reload to reload the plugin, or run `obsidian.com plugin:reload id=keyword-decorator`. Do not reload the entire application.
-6. Open the plugin settings. `npm run build:local:set` combines the build/copy step with the settings opener when Hot Reload is active.
+6. Open the plugin settings. `pnpm run build:local:set` combines the build/copy step with the settings opener when Hot Reload is active.
 
 The settings opener retries briefly if a plugin reload and CLI request overlap. `NO.hotreload`, when present in an existing vault, is preserved.
 
-Production builds (`npm run build`) additionally mirror `dist/main.js` to the repository root as `main.js`, next to the committed `manifest.json` and `styles.css`, matching the layout Obsidian's official release tooling expects. The root copy is gitignored and regenerated on every build.
+Production builds (`pnpm run build`) additionally mirror `dist/main.js` to the repository root as `main.js`, next to the committed `manifest.json` and `styles.css`, matching the layout Obsidian's official release tooling expects. The root copy is gitignored and regenerated on every build.
 
 ## Code map
 
@@ -57,7 +57,7 @@ An intentionally pathological regular expression can still block the UI thread. 
 
 ## Validation
 
-`npm run test` bundles TypeScript tests into temporary CommonJS files and runs Node's test runner. The Obsidian mock supplies only host APIs needed to import data modules; it does not implement matching, normalization or persistence behavior.
+`pnpm run test` bundles TypeScript tests into temporary CommonJS files and runs Node's test runner. The Obsidian mock supplies only host APIs needed to import data modules; it does not implement matching, normalization or persistence behavior.
 
 For UI and runtime changes, additionally verify in Obsidian: automatic saving, rapid consecutive edits, duplicate/delete/undo, keyboard and pointer reordering, master and rule toggles, narrow-screen navigation, local image completion, SVG sanitation and dimensions, hidden text recovery, and Reading view cleanup after plugin reload. Run tests that replace settings in a separate test vault. Never run overlapping settings-mutation scripts in a personal vault: a timed-out CLI request can continue running inside Obsidian. Keep a durable configuration backup before any write-based host test, wait for the previous script to finish, and verify the final disk contents.
 

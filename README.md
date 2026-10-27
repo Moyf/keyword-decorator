@@ -164,18 +164,18 @@ If you like Keyword Decorator, consider [buying me a coffee on Ko-fi](https://ko
 ## Development
 
 ```sh
-npm install
+pnpm install
 ```
 
 Copy `.env.example` to `.env` and set `VAULT_PATH` to an existing Obsidian vault containing `.obsidian`. The copy script reads the process environment first, then `.env` files in the repository and parent directories. Relative vault paths resolve from the matching `.env` directory.
 
 ```sh
-npm run test
-npm run lint
-npm run build:local
+pnpm run test
+pnpm run lint
+pnpm run build:local
 ```
 
-Build outputs are in `dist/`. Local builds copy only plugin assets, preserving the vault's existing `data.json`. Reload the plugin, then open its settings. Use `npm run build:local:set` to build and open settings when Hot Reload is active.
+Build outputs are in `dist/`. Local builds copy only plugin assets, preserving the vault's existing `data.json`. Reload the plugin, then open its settings. Use `pnpm run build:local:set` to build and open settings when Hot Reload is active.
 
 ## License
 
