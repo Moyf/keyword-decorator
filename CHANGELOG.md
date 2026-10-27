@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - 2026-10-27
+
+### 🐛 Fixed
+
+- **Settings layout**: Lower the rule workbench single-column breakpoint from 620px to 480px, so narrower pop-out settings windows keep the two-column layout.
+
+### ⚡ Changed
+
+- **Build tooling**: Migrate the build toolchain to pnpm, complete the lockfile integrity metadata required by the new supply-chain checks, and build releases with a frozen-lockfile install. No runtime behavior change.
+
+<details>
+<summary>中文说明（点击展开）</summary>
+
+### 🐛 修复
+
+- **设置页布局**：规则工作台单列断点从 620px 下调至 480px，更窄的独立设置窗口也能保持双列布局。
+
+### ⚡ 调整
+
+- **构建工具链**：构建链迁移到 pnpm，补齐新供应链校验所需的 lockfile 完整性元数据，发布改用冻结锁文件安装；运行时行为不变。
+
+</details>
+
 ## [0.3.1] - 2026-10-26
 
 ### ⚠️ Breaking Changes

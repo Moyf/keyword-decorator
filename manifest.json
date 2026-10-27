@@ -1,7 +1,7 @@
 {
   "id": "keyword-decorator",
   "name": "Keyword Decorator",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "minAppVersion": "1.13.0",
   "description": "Decorate keyword matches in the editor and reading view with configurable styles and markers.",
   "author": "Moy",
