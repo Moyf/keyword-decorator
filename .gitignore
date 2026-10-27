@@ -20,3 +20,4 @@ dist/
 
 # obsidian
 data.json
+.worktrees/
