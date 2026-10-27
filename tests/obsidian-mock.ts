@@ -57,9 +57,9 @@ export function getIconIds(): string[] { return []; }
 export function addIcon(id: string, svg: string) { void id; void svg; }
 export class Notice { hide() {} }
 
-export function getLanguage(): string {
-  return "en";
-}
+let language = "en";
+export function setLanguage(value: string) { language = value; }
+export function getLanguage(): string { return language; }
 
 export function requireApiVersion(): boolean {
   return true;

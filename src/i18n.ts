@@ -13,9 +13,9 @@ const en = {
   appearance: "Appearance", preview: "Live preview", previewText: "Preview text", textColor: "Text", background: "Background", bold: "Bold", italic: "Italic", underline: "Underline",
   marker: "Marker", markerType: "Type", none: "None", emoji: "Emoji", icon: "Lucide icon", image: "Vault image", svg: "SVG code", markerValue: "Value", svgHint: "Paste a complete <svg>…</svg>. Active content and external references are removed.",
   url: "Image URL", urlHint: "Paste an HTTP or HTTPS image URL. The image loads directly from its host.", invalidUrl: "Enter a valid HTTP or HTTPS image URL.",
-  imageHint: "Choose an image in this vault, or enter its full vault path.", browse: "Browse images", imageSearch: "Search images by filename or path…", noImages: "No images found in this vault", width: "Width", height: "Height", cornerRadius: "Corner radius", size: "Image size", sizeHint: "Accepts px or em; a plain number means px (1–512 px, up to 32 em). Equal width and height with a radius of half the size renders a circle.",
-  hideText: "Hide matched text", hideDesc: "Show only the emoji, image or SVG. In the editor, move the cursor into a match to edit its original text.",
-  decorateOnce: "Only once per note", decorateOnceDesc: "Decorate only the first occurrence of this rule in the note; later matches stay plain.",
+  imageHint: "Choose an image in this vault, or enter its full vault path.", browse: "Browse images", imageSearch: "Search images by filename or path…", noImages: "No images found in this vault", width: "Width", height: "Height", cornerRadius: "Radius", size: "Image size", sizeHint: "px or em; plain number = px.",
+  hideText: "Hide matched text", hideDesc: "Show only the emoji, image or SVG.",
+  decorateOnce: "Only once per note", decorateOnceDesc: "Decorate only the first occurrence in the note.",
   advanced: "Advanced", cssClass: "CSS classes", css: "Custom CSS", priority: "Earlier rules win when matches overlap.", paused: "Decorations paused", pausedDesc: "Rules are saved. Turn on decorations to apply them.",
 } as const;
 export type MessageKey = keyof typeof en;
@@ -26,8 +26,8 @@ const zh: Record<MessageKey, string> = {
   back: "全部规则", duplicate: "创建副本", copy: "副本", delete: "删除规则", undo: "撤销", deleted: "规则已删除", up: "上移", down: "下移", drag: "拖动排序 · Alt + ↑ / ↓",
   name: "规则名称", unnamed: "未命名规则", namePlaceholder: "用一个名称方便以后查找", matching: "匹配", mode: "匹配方式", keywords: "关键词（每行一个）", single: "单个关键词", multiple: "多个关键词", regex: "正则表达式", query: "关键词", queries: "关键词列表", queryHint: "每行一个关键词，只有一行也可以；逗号会作为文字匹配。", regexHint: "填写表达式，不包含两侧的 /。请使用简单表达式，避免匹配缓慢。", invalidRegex: "正则表达式无效，修正后此规则才会生效。",
   appearance: "外观", preview: "即时预览", previewText: "预览文字", textColor: "文字", background: "背景", bold: "粗体", italic: "斜体", underline: "下划线",
-  marker: "装饰标记", markerType: "类型", none: "无", emoji: "Emoji", icon: "Lucide 图标", image: "库内图片", svg: "SVG 代码", markerValue: "内容", svgHint: "粘贴完整的 <svg>…</svg> 代码。脚本和外部引用会被移除。", imageHint: "从库内选择图片，或填写完整库内路径。远程 URL 会连接至图片网站。", browse: "浏览图片", imageSearch: "搜索图片名称或路径…", noImages: "库内没有找到图片", width: "宽度", height: "高度", cornerRadius: "圆角", size: "图片大小", sizeHint: "支持 px 与 em，不写单位按 px 处理（1–512 px，最高 32 em）；宽高一致、圆角为尺寸的一半即可呈现圆形。", hideText: "隐藏匹配文字", hideDesc: "只显示 Emoji、图片或 SVG；编辑时将光标移入匹配处，即可编辑原文。",
-  decorateOnce: "整篇笔记内仅生效一次", decorateOnceDesc: "只有该关键词在整篇笔记中第一次出现的位置会添加装饰，后续出现保持原样。",
+  marker: "装饰标记", markerType: "类型", none: "无", emoji: "Emoji", icon: "Lucide 图标", image: "库内图片", svg: "SVG 代码", markerValue: "内容", svgHint: "粘贴完整的 <svg>…</svg> 代码。脚本和外部引用会被移除。", imageHint: "从库内选择图片，或填写完整库内路径。远程 URL 会连接至图片网站。", browse: "浏览图片", imageSearch: "搜索图片名称或路径…", noImages: "库内没有找到图片", width: "宽度", height: "高度", cornerRadius: "圆角", size: "图片大小", sizeHint: "px 或 em；纯数字按 px 处理。", hideText: "隐藏匹配文字", hideDesc: "只显示 Emoji、图片或 SVG。",
+  decorateOnce: "整篇笔记内仅生效一次", decorateOnceDesc: "仅装饰笔记中首次出现的匹配。",
   url: "网络图片", urlHint: "粘贴 HTTP 或 HTTPS 图片链接，图片将直接从对应网站加载。", invalidUrl: "请输入有效的 HTTP 或 HTTPS 图片链接。",
   advanced: "高级", cssClass: "CSS 类名", css: "自定义 CSS", priority: "规则重叠时，排在前面的优先。", paused: "装饰已暂停", pausedDesc: "规则仍会保存，开启总开关即可应用。",
 };

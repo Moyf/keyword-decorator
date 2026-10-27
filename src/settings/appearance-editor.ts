@@ -21,11 +21,12 @@ export function renderAppearance(container: HTMLElement, app: App, style: RuleAp
   const visibilityUpdates: (() => void)[] = [];
   const changed = () => { resetUpdates.forEach(update => update()); visibilityUpdates.forEach(update => update()); onChanged(); };
   let imageSuggest: ImageSuggest | undefined, iconSuggest: IconSuggest | undefined;
-  const reset = (wrap: HTMLElement, keys: (keyof RuleAppearance)[]) => {
-    if (!context.inherited) return;
+  const reset = (wrap: HTMLElement, keys: (keyof RuleAppearance)[], allowDefault = false, afterReset?: () => void) => {
+    if (!context.inherited && !allowDefault) return;
     wrap.addClass("has-inherit-reset");
-    const button = iconButton(wrap, "rotate-ccw", localize("Use group value", "使用分组的值"), () => {
+    const button = iconButton(wrap, "rotate-ccw", context.inherited ? localize("Use group value", "使用分组的值") : localize("Restore defaults", "恢复默认值"), () => {
       for (const key of keys) delete style[key];
+      afterReset?.();
       changed(); context.refresh?.();
     });
     button.buttonEl.addClass("kd-inherit-reset");
@@ -115,7 +116,12 @@ export function renderAppearance(container: HTMLElement, app: App, style: RuleAp
       }
     }
     if (imageType) {
-      const dimensions = source.createDiv("kd-dimensions");
+      const sizeGroup = source.createDiv({ cls: "kd-image-size", attr: { role: "group", "aria-label": t("size") } });
+      const sizeHeading = sizeGroup.createDiv("kd-dimensions-heading");
+      sizeHeading.createSpan({ text: t("size") });
+      const sizeInputUpdates: (() => void)[] = [];
+      reset(sizeHeading, ["imageWidth", "imageHeight", "imageCornerRadius"], true, () => sizeInputUpdates.forEach(update => update()));
+      const dimensions = sizeGroup.createDiv("kd-dimensions");
       for (const [key, label] of [["imageWidth", "width"], ["imageHeight", "height"], ["imageCornerRadius", "cornerRadius"]] as const) {
         const sizeField = field(dimensions, t(label));
         const stored = effective()[key];
@@ -142,14 +148,15 @@ export function renderAppearance(container: HTMLElement, app: App, style: RuleAp
         });
         // Keep incomplete drafts editable (for example "1."), but never leave
         // an invalid value looking as though it was saved after focus leaves.
-        input.addEventListener("blur", () => {
+        const restoreInput = () => {
           const value = effective()[key];
           input.value = value === undefined ? fallback : String(value);
           input.setAttribute("aria-invalid", "false");
-        });
-        reset(sizeField.wrap, [key]);
+        };
+        input.addEventListener("blur", restoreInput);
+        sizeInputUpdates.push(restoreInput);
       }
-      source.createDiv({ cls: "kd-caption", text: t("sizeHint") });
+      sizeGroup.createDiv({ cls: "kd-caption", text: t("sizeHint") });
     }
   }
   type.addEventListener("change", () => {
