@@ -118,7 +118,7 @@
 .kd-formats > button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 30px; min-width: 30px; height: 30px; padding: 4px; }
 .kd-formats button[aria-pressed="true"] { background: var(--interactive-accent); color: var(--text-on-accent); }
 .kd-image-input-row { display: flex; gap: 6px; min-width: 0; }
-.kd-dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.kd-dimensions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .kd-hide-row { justify-content: space-between; align-items: flex-start; border-top: 1px solid var(--background-modifier-border); padding-top: 12px; margin-top: 16px; }
 .kd-image-option > div { min-width: 0; overflow-wrap: anywhere; }
 .kd-hide-row > div:first-child { flex: 1; font-size: var(--font-ui-small); }

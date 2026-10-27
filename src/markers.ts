@@ -1,4 +1,5 @@
 import { App, setIcon, TFile } from "obsidian";
+import { ImageSize, parseImageSize } from "./image-size";
 
 export interface MarkerRule {
   prefixType?: string;
@@ -8,8 +9,9 @@ export interface MarkerRule {
   iconInheritColor?: boolean;
   backgroundIncludesMarker?: boolean;
   color?: string | null;
-  imageWidth?: number;
-  imageHeight?: number;
+  imageWidth?: number | string;
+  imageHeight?: number | string;
+  imageCornerRadius?: number | string;
 }
 
 const imageCache = new WeakMap<App, Map<string, string>>();
@@ -128,12 +130,17 @@ export function createPrefixNode(app: App, doc: Document, rule: MarkerRule, onIm
     try {
       const template = getSanitizedSvgTemplate(doc, source);
       if (!template) return null;
+      const width = markerSize(rule.imageWidth), height = markerSize(rule.imageHeight);
       const importedSvg = doc.importNode(template, true);
-      importedSvg.setAttribute("width", String(positiveDimension(rule.imageWidth, 24)));
-      importedSvg.setAttribute("height", String(positiveDimension(rule.imageHeight, 24)));
       importedSvg.setAttribute("aria-hidden", "true");
-      importedSvg.style.width = `${positiveDimension(rule.imageWidth, 24)}px`;
-      importedSvg.style.height = `${positiveDimension(rule.imageHeight, 24)}px`;
+      importedSvg.style.width = sizeCss(width);
+      importedSvg.style.height = sizeCss(height);
+      for (const [attribute, size] of [["width", width], ["height", height]] as const) {
+        // Length attributes only understand device units; em sizes stay in the style layer.
+        if (size.unit === "px") importedSvg.setAttribute(attribute, String(size.amount));
+        else importedSvg.removeAttribute(attribute);
+      }
+      applyCornerRadius(importedSvg, rule.imageCornerRadius);
       prefix.appendChild(importedSvg);
       prefix.dataset.kdImageValid = "true";
       return prefix;
@@ -154,10 +161,14 @@ export function createPrefixNode(app: App, doc: Document, rule: MarkerRule, onIm
     image.referrerPolicy = "no-referrer";
     image.alt = "";
     image.addClass("keyword-decorator-prefix-image");
-    image.width = positiveDimension(rule.imageWidth, 24);
-    image.height = positiveDimension(rule.imageHeight, 24);
-    image.style.width = `${image.width}px`;
-    image.style.height = `${image.height}px`;
+    const width = markerSize(rule.imageWidth), height = markerSize(rule.imageHeight);
+    image.style.width = sizeCss(width);
+    image.style.height = sizeCss(height);
+    if (width.unit === "px" && height.unit === "px") {
+      image.width = width.amount;
+      image.height = height.amount;
+    }
+    applyCornerRadius(image, rule.imageCornerRadius);
     image.onerror = () => {
       image.remove();
       let failed = failedImageSources.get(app);
@@ -181,6 +192,16 @@ export function normalizeImageUrl(input: string): string {
   } catch { return ""; }
 }
 
-function positiveDimension(value: number | undefined, fallback: number): number {
-  return Number.isFinite(value) && (value as number) > 0 ? Math.round(value as number) : fallback;
+function markerSize(value: number | string | undefined, fallback = 24): ImageSize {
+  return parseImageSize(value) ?? { amount: fallback, unit: "px" };
+}
+
+function sizeCss(size: ImageSize): string {
+  return size.unit === "em" ? `${size.amount}em` : `${size.amount}px`;
+}
+
+function applyCornerRadius(element: HTMLElement | SVGSVGElement, value: number | string | undefined) {
+  if (value === undefined) return;
+  const radius = parseImageSize(value);
+  if (radius) element.style.borderRadius = sizeCss(radius);
 }

@@ -1,9 +1,10 @@
-import { combineConfig, Extension, Facet, Range, StateEffect, Text } from "@codemirror/state";
+import { combineConfig, EditorState, Extension, Facet, Range, StateEffect, Text } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
+import type { Tree } from "@lezer/common";
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate, WidgetType } from "@codemirror/view";
 import { App } from "obsidian";
 import { createPrefixNode, isImageSourceFailed, isSvgMarkupValid, resolveImage } from "../markers";
-import { compileRules, CompiledRule, findMatchesInRanges } from "./matching";
+import { compileRules, CompiledRule, findMatchesInRanges, firstMatchesByRule, TextMatch } from "./matching";
 import { SearchQueries } from "../settings/settings";
 import { getEffectiveQueries } from "../settings/groups";
 import DynamicHighlightsPlugin from "src/main";
@@ -11,6 +12,7 @@ import { canDecorateEditor, EDITOR_SCOPE_CLASS, editorTextRanges, excludedEditor
 
 export type StaticHighlightOptions = { queries: SearchQueries; queryOrder: string[]; enabled?: boolean; decorateInSourceMode?: boolean };
 const defaultOptions: StaticHighlightOptions = { queries: {}, queryOrder: [], enabled: true, decorateInSourceMode: false };
+const noOnceTargets = new Map<string, TextMatch>();
 let runtimeApp: App | null = null;
 const refreshDecorations = StateEffect.define<null>();
 
@@ -71,6 +73,8 @@ const staticHighlighter = ViewPlugin.fromClass(
     private readonly debounceMs = 90;
     private lastDocument: Text | null = null;
     private documentText = "";
+    private onceTargets: { document: Text | null; compiled: CompiledRule[] | null; tree: Tree | null; targets: Map<string, TextMatch> } =
+      { document: null, compiled: null, tree: null, targets: noOnceTargets };
 
     constructor(private readonly view: EditorView) {
       this.config = view.state.facet(staticHighlightConfig);
@@ -122,6 +126,18 @@ const staticHighlighter = ViewPlugin.fromClass(
       this.recomputeTimer = null;
     }
 
+    /** Document-level first occurrence per once-rule, so matches outside the viewport cannot shift "first". */
+    private getOnceTargets(state: EditorState, text: string): Map<string, TextMatch> {
+      if (!this.compiled.some(item => item.rule.decorateOnce)) return noOnceTargets;
+      const tree = syntaxTree(state);
+      const cache = this.onceTargets;
+      if (cache.document === state.doc && cache.compiled === this.compiled && cache.tree === tree) return cache.targets;
+      const excluded = excludedEditorRanges(state, 0, text.length);
+      const targets = firstMatchesByRule(text, this.compiled, match => !overlapsExcludedRange(excluded, match.from, match.to));
+      this.onceTargets = { document: state.doc, compiled: this.compiled, tree, targets };
+      return targets;
+    }
+
     private getDeco(view: EditorView): { token: DecorationSet; widget: DecorationSet } {
       const tokenDecos: Range<Decoration>[] = [];
       const widgetDecos: Range<Decoration>[] = [];
@@ -137,10 +153,15 @@ const staticHighlighter = ViewPlugin.fromClass(
         this.documentText = state.doc.toString();
       }
       const text = this.documentText;
+      const onceTargets = this.getOnceTargets(state, text);
       for (const match of findMatchesInRanges(text, visibleRanges, this.compiled,
         match => !overlapsExcludedRange(excluded, match.from, match.to))) {
         const from = match.from;
         const to = match.to;
+        if (match.rule.decorateOnce) {
+          const target = onceTargets.get(match.ruleId);
+          if (!target || target.from !== from || target.to !== to) continue;
+        }
         const startLine = state.doc.lineAt(from);
         const endLine = state.doc.lineAt(Math.max(from, to - 1));
         const rule = match.rule as SearchQueries[string];
@@ -204,6 +225,6 @@ class PrefixWidget extends WidgetType {
     if (!this.app) return this.doc.adoptNode(createSpan());
     return createPrefixNode(this.app, this.doc, this.rule, this.onImageError) || this.doc.adoptNode(createSpan());
   }
-  eq(other: PrefixWidget) { return this.rule.prefixType === other.rule.prefixType && this.rule.prefixValue === other.rule.prefixValue && JSON.stringify(this.rule.prefixValues) === JSON.stringify(other.rule.prefixValues) && this.rule.textColor === other.rule.textColor && this.rule.iconInheritColor === other.rule.iconInheritColor && this.rule.backgroundIncludesMarker === other.rule.backgroundIncludesMarker && this.rule.color === other.rule.color && this.rule.imageWidth === other.rule.imageWidth && this.rule.imageHeight === other.rule.imageHeight && this.app === other.app; }
+  eq(other: PrefixWidget) { return this.rule.prefixType === other.rule.prefixType && this.rule.prefixValue === other.rule.prefixValue && JSON.stringify(this.rule.prefixValues) === JSON.stringify(other.rule.prefixValues) && this.rule.textColor === other.rule.textColor && this.rule.iconInheritColor === other.rule.iconInheritColor && this.rule.backgroundIncludesMarker === other.rule.backgroundIncludesMarker && this.rule.color === other.rule.color && this.rule.imageWidth === other.rule.imageWidth && this.rule.imageHeight === other.rule.imageHeight && this.rule.imageCornerRadius === other.rule.imageCornerRadius && this.app === other.app; }
   ignoreEvent() { return true; }
 }

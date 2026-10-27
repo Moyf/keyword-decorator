@@ -7,6 +7,7 @@ export interface MatchRule {
   enabled?: boolean;
   hideText?: boolean;
   styleWholeLine?: boolean;
+  decorateOnce?: boolean;
 }
 
 export interface CompiledRule {
@@ -143,4 +144,45 @@ export function findMatchesInRanges(text: string, ranges: readonly { from: numbe
     }
   }
   return Array.from(found.values()).sort((a, b) => a.priority - b.priority || a.from - b.from || b.to - a.to);
+}
+
+/** First resolved match per rule across a complete document, for rules that decorate only once. */
+export function firstMatchesByRule(text: string, rules: CompiledRule[], accepts?: (match: TextMatch) => boolean): Map<string, TextMatch> {
+  const first = new Map<string, TextMatch>();
+  if (!rules.some(item => item.rule.decorateOnce)) return first;
+  for (const match of findMatches(text, rules)) {
+    if (!match.rule.decorateOnce || first.has(match.ruleId)) continue;
+    if (accepts && !accepts(match)) continue;
+    first.set(match.ruleId, match);
+  }
+  return first;
+}
+
+export interface FirstOccurrenceTarget { text: string; ordinal: number }
+
+/**
+ * Keep only the occurrence that mirrors the document-level first match.
+ * `blockBase` is the number of raw occurrences of the target text before this block in the source,
+ * or null when the block cannot be located in the source (then every occurrence stays visible).
+ */
+export function filterFirstOccurrenceMatches(matches: TextMatch[], blockText: string, targets: Map<string, FirstOccurrenceTarget>, blockBase: number | null): TextMatch[] {
+  if (!targets.size) return matches;
+  return matches.filter(match => {
+    if (!match.rule.decorateOnce) return true;
+    const target = targets.get(match.ruleId);
+    if (!target || blockBase === null) return true;
+    if (blockText.slice(match.from, match.to) !== target.text) return false;
+    return blockBase + countBefore(blockText, target.text, match.from) === target.ordinal;
+  });
+}
+
+function countBefore(text: string, needle: string, end: number): number {
+  if (!needle) return 0;
+  let count = 0;
+  let from = 0;
+  while ((from = text.indexOf(needle, from)) !== -1 && from < end) {
+    count++;
+    from += needle.length;
+  }
+  return count;
 }

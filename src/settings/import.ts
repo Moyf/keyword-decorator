@@ -1,7 +1,8 @@
 import { App, ButtonComponent, Modal, Setting, TextAreaComponent } from "obsidian";
 import { localize } from "../i18n";
+import { parseImageSize } from "../image-size";
 import type DynamicHighlightsPlugin from "../main";
-import { DynamicHighlightsSettings, MAX_IMAGE_DIMENSION, normalizeSearchQuery, normalizeSettings, PrefixType, RuleGroup, SearchQueries } from "./settings";
+import { DynamicHighlightsSettings, normalizeSearchQuery, normalizeSettings, PrefixType, RuleGroup, SearchQueries } from "./settings";
 import { appendBulkRules } from "./bulk";
 import { syncGroupedQueryOrder } from "./groups";
 
@@ -68,10 +69,9 @@ export function parseSettingsImport(raw: unknown): { value?: ParsedSettingsImpor
       errors.push(`Rule “${id}” has an unsupported prefix type.`);
     }
     if (candidate.groupId !== undefined && (typeof candidate.groupId !== "string" || !candidate.groupId.trim())) errors.push(`Rule “${id}” has an invalid groupId.`);
-    for (const field of ["imageWidth", "imageHeight"]) {
-      const dimension = candidate[field];
-      if (dimension !== undefined && (typeof dimension !== "number" || !Number.isInteger(dimension) || dimension < 1 || dimension > MAX_IMAGE_DIMENSION)) {
-        errors.push(`Rule “${id}” has an invalid ${field} (expected 1–${MAX_IMAGE_DIMENSION} pixels).`);
+    for (const field of ["imageWidth", "imageHeight", "imageCornerRadius"]) {
+      if (candidate[field] !== undefined && !parseImageSize(candidate[field])) {
+        errors.push(`Rule “${id}” has an invalid ${field} (expected a size like 24, 24px or 1.5em).`);
       }
     }
     if (candidate.queryMode !== undefined && (typeof candidate.queryMode !== "string" || !["keywords", "single", "multiple", "regex", "emoji-shortcodes"].includes(candidate.queryMode))) {
@@ -88,7 +88,7 @@ export function parseSettingsImport(raw: unknown): { value?: ParsedSettingsImpor
         errors.push(`Rule “${id}” has an invalid ${field}.`);
       }
     }
-    for (const field of ["italic", "underline", "enabled", "hideText", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine"]) {
+    for (const field of ["italic", "underline", "enabled", "hideText", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine", "decorateOnce"]) {
       if (candidate[field] !== undefined && typeof candidate[field] !== "boolean") {
         errors.push(`Rule “${id}” has an invalid ${field}.`);
       }
@@ -126,7 +126,7 @@ export function parseSettingsImport(raw: unknown): { value?: ParsedSettingsImpor
 
 const prefixTypes: PrefixType[] = ["none", "emoji", "icon", "image", "url", "svg"];
 const appearanceStringFields = ["class", "fontWeight", "prefixValue", "css"];
-const appearanceBooleanFields = ["italic", "underline", "hideText", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine"];
+const appearanceBooleanFields = ["italic", "underline", "hideText", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine", "decorateOnce"];
 
 function validatePrefixValues(value: unknown, label: string, errors: string[]) {
   if (value === undefined) return;
@@ -144,9 +144,8 @@ function validateAppearance(value: Record<string, unknown>, label: string, error
   for (const field of ["color", "textColor"]) if (value[field] !== undefined && value[field] !== null && typeof value[field] !== "string") errors.push(`${label} has an invalid ${field}.`);
   for (const field of appearanceBooleanFields) if (value[field] !== undefined && typeof value[field] !== "boolean") errors.push(`${label} has an invalid ${field}.`);
   if (value.prefixType !== undefined && (typeof value.prefixType !== "string" || !prefixTypes.includes(value.prefixType as PrefixType))) errors.push(`${label} has an unsupported prefix type.`);
-  for (const field of ["imageWidth", "imageHeight"]) {
-    const dimension = value[field];
-    if (dimension !== undefined && (typeof dimension !== "number" || !Number.isInteger(dimension) || dimension < 1 || dimension > MAX_IMAGE_DIMENSION)) errors.push(`${label} has an invalid ${field} (expected 1–${MAX_IMAGE_DIMENSION} pixels).`);
+  for (const field of ["imageWidth", "imageHeight", "imageCornerRadius"]) {
+    if (value[field] !== undefined && !parseImageSize(value[field])) errors.push(`${label} has an invalid ${field} (expected a size like 24, 24px or 1.5em).`);
   }
   validatePrefixValues(value.prefixValues, label, errors);
 }

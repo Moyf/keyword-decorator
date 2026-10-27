@@ -56,18 +56,29 @@ export const queriesSchema = {
         styleWholeLine: {
           type: "boolean",
         },
+        decorateOnce: {
+          type: "boolean",
+        },
         hideText: {
           type: "boolean",
         },
         imageWidth: {
-          maximum: 512,
-          minimum: 1,
-          type: "integer",
+          anyOf: [
+            { type: "integer", minimum: 1, maximum: 512 },
+            { type: "string", pattern: "^\\d+(?:\\.\\d+)?(?:px|em)?$" },
+          ],
         },
         imageHeight: {
-          maximum: 512,
-          minimum: 1,
-          type: "integer",
+          anyOf: [
+            { type: "integer", minimum: 1, maximum: 512 },
+            { type: "string", pattern: "^\\d+(?:\\.\\d+)?(?:px|em)?$" },
+          ],
+        },
+        imageCornerRadius: {
+          anyOf: [
+            { type: "integer", minimum: 1, maximum: 512 },
+            { type: "string", pattern: "^\\d+(?:\\.\\d+)?(?:px|em)?$" },
+          ],
         },
         queryMode: {
           enum: ["keywords", "single", "multiple", "regex", "emoji-shortcodes"],
