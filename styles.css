@@ -101,7 +101,8 @@
 .kd-section { margin-block: 22px; }
 .kd-section-heading { font-size: var(--font-ui-small); font-weight: var(--font-semibold); margin-bottom: 12px; }
 .kd-field { display: flex; flex-direction: column; min-width: 0; gap: 6px; margin-bottom: 12px; }
-.kd-field > label { font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.kd-field > label,
+.kd-dimensions-heading { font-size: var(--font-ui-smaller); color: var(--text-muted); }
 .kd-field textarea { min-height: 64px; resize: vertical; }
 .kd-image-input-row > input { flex: 1; }
 .modal-dynamic-highlights textarea { display: block; width: 100%; min-height: 230px; font-family: var(--font-monospace); font-size: var(--font-smaller); resize: vertical; margin-block: 12px; }
@@ -118,7 +119,8 @@
 .kd-formats > button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 30px; min-width: 30px; height: 30px; padding: 4px; }
 .kd-formats button[aria-pressed="true"] { background: var(--interactive-accent); color: var(--text-on-accent); }
 .kd-image-input-row { display: flex; gap: 6px; min-width: 0; }
-.kd-dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.kd-dimensions-heading { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+.kd-dimensions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .kd-hide-row { justify-content: space-between; align-items: flex-start; border-top: 1px solid var(--background-modifier-border); padding-top: 12px; margin-top: 16px; }
 .kd-image-option > div { min-width: 0; overflow-wrap: anywhere; }
 .kd-hide-row > div:first-child { flex: 1; font-size: var(--font-ui-small); }

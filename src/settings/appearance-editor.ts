@@ -1,5 +1,6 @@
 import { App, ButtonComponent, getIcon, setIcon, TextAreaComponent, TextComponent, ToggleComponent } from "obsidian";
 import { localize, t } from "../i18n";
+import { parseImageSize, toStoredImageSize } from "../image-size";
 import { isSvgMarkupValid, normalizeImageUrl } from "../markers";
 import { PrefixType, RuleAppearance } from "./settings";
 import { colorControl, field, iconButton } from "./ui-helpers";
@@ -20,18 +21,19 @@ export function renderAppearance(container: HTMLElement, app: App, style: RuleAp
   const visibilityUpdates: (() => void)[] = [];
   const changed = () => { resetUpdates.forEach(update => update()); visibilityUpdates.forEach(update => update()); onChanged(); };
   let imageSuggest: ImageSuggest | undefined, iconSuggest: IconSuggest | undefined;
-  const reset = (wrap: HTMLElement, keys: (keyof RuleAppearance)[]) => {
-    if (!context.inherited) return;
+  const reset = (wrap: HTMLElement, keys: (keyof RuleAppearance)[], allowDefault = false, afterReset?: () => void) => {
+    if (!context.inherited && !allowDefault) return;
     wrap.addClass("has-inherit-reset");
-    const button = iconButton(wrap, "rotate-ccw", localize("Use group value", "使用分组的值"), () => {
+    const button = iconButton(wrap, "rotate-ccw", context.inherited ? localize("Use group value", "使用分组的值") : localize("Restore defaults", "恢复默认值"), () => {
       for (const key of keys) delete style[key];
+      afterReset?.();
       changed(); context.refresh?.();
     });
     button.buttonEl.addClass("kd-inherit-reset");
     const update = () => { const own = keys.some(key => style[key] !== undefined); wrap.toggleClass("is-inherited", !own); button.setDisabled(!own); };
     resetUpdates.push(update); update();
   };
-  const toggle = (parent: HTMLElement, key: "iconInheritColor" | "backgroundIncludesMarker" | "hideText" | "styleWholeLine", label: string, description: string, fallback = false) => {
+  const toggle = (parent: HTMLElement, key: "iconInheritColor" | "backgroundIncludesMarker" | "hideText" | "styleWholeLine" | "decorateOnce", label: string, description: string, fallback = false) => {
     const row = parent.createDiv("kd-option-row"), info = row.createDiv("kd-option-info");
     info.createDiv({ cls: "kd-option-title", text: label });
     if (description) info.createDiv({ cls: "kd-caption", text: description });
@@ -114,17 +116,47 @@ export function renderAppearance(container: HTMLElement, app: App, style: RuleAp
       }
     }
     if (imageType) {
-      const dimensions = source.createDiv("kd-dimensions");
-      for (const [key, label] of [["imageWidth", "width"], ["imageHeight", "height"]] as const) {
+      const sizeGroup = source.createDiv({ cls: "kd-image-size", attr: { role: "group", "aria-label": t("size") } });
+      const sizeHeading = sizeGroup.createDiv("kd-dimensions-heading");
+      sizeHeading.createSpan({ text: t("size") });
+      const sizeInputUpdates: (() => void)[] = [];
+      reset(sizeHeading, ["imageWidth", "imageHeight", "imageCornerRadius"], true, () => sizeInputUpdates.forEach(update => update()));
+      const dimensions = sizeGroup.createDiv("kd-dimensions");
+      for (const [key, label] of [["imageWidth", "width"], ["imageHeight", "height"], ["imageCornerRadius", "cornerRadius"]] as const) {
         const sizeField = field(dimensions, t(label));
-        const input = sizeField.wrap.createEl("input", { type: "number", value: String(effective()[key] || 24), attr: { id: sizeField.id, min: "1", max: "512", step: "1" } });
-        input.addEventListener("input", () => {
-          const number = Number(input.value), valid = Number.isInteger(number) && number >= 1 && number <= 512;
-          input.setAttribute("aria-invalid", String(!valid)); if (valid) { style[key] = number; changed(); }
+        const stored = effective()[key];
+        const fallback = key === "imageCornerRadius" ? "" : "24";
+        const input = sizeField.wrap.createEl("input", {
+          type: "text",
+          value: stored === undefined ? fallback : String(stored),
+          attr: { id: sizeField.id, placeholder: fallback, spellcheck: "false" },
         });
-        reset(sizeField.wrap, [key]);
+        input.setAttribute("inputmode", "decimal");
+        input.addEventListener("input", () => {
+          const text = input.value.trim();
+          let valid = true;
+          if (!text) {
+            if (key === "imageCornerRadius") delete style[key];
+            else style[key] = 24;
+          } else {
+            const size = parseImageSize(text);
+            if (size) style[key] = toStoredImageSize(size);
+            else valid = false;
+          }
+          input.setAttribute("aria-invalid", String(!valid));
+          if (valid) changed();
+        });
+        // Keep incomplete drafts editable (for example "1."), but never leave
+        // an invalid value looking as though it was saved after focus leaves.
+        const restoreInput = () => {
+          const value = effective()[key];
+          input.value = value === undefined ? fallback : String(value);
+          input.setAttribute("aria-invalid", "false");
+        };
+        input.addEventListener("blur", restoreInput);
+        sizeInputUpdates.push(restoreInput);
       }
-      source.createDiv({ cls: "kd-caption", text: t("sizeHint") });
+      sizeGroup.createDiv({ cls: "kd-caption", text: t("sizeHint") });
     }
   }
   type.addEventListener("change", () => {
@@ -147,6 +179,7 @@ export function renderAppearance(container: HTMLElement, app: App, style: RuleAp
   setIcon(summary.createSpan({ cls: "kd-disclosure-icon", attr: { "aria-hidden": "true" } }), "chevron-down");
   const body = advanced.createDiv("kd-advanced-body");
   toggle(body, "styleWholeLine", localize("Apply style to the whole line", "把样式附加到整行"), localize("Style the complete logical line containing a match.", "将样式应用到关键词所在的整个逻辑行。"));
+  toggle(body, "decorateOnce", t("decorateOnce"), t("decorateOnceDesc"));
   const classes = field(body, t("cssClass"));
   new TextComponent(classes.wrap).setValue(effective().class || "").setPlaceholder("Keyword-style").onChange(value => { style.class = value.trim(); changed(); }).inputEl.id = classes.id;
   reset(classes.wrap, ["class"]);

@@ -31,11 +31,11 @@ The rule workbench is built for vaults with dozens of rules:
 
 - **Emoji shortcodes**: a built-in group converts `:smile:` → 😄 and 1,913 more aliases, fully offline via a bundled dictionary. Unknown names stay unchanged, and **Hide matched text** leaves only the emoji — move the cursor into a match to edit the original shortcode.
 - **Lucide icons**: search icons with suggestions and previews; icons inherit the rule's text color by default.
-- **Vault images and SVG**: pick vault images by name or path with thumbnails, paste complete SVG markup, or use direct image URLs. Width, height and hide-text are configurable; failed loads leave the original text readable.
+- **Vault images and SVG**: pick vault images by name or path with thumbnails, paste complete SVG markup, or use direct image URLs. Width, height, corner radius and hide-text are configurable; sizes accept px or em (a plain number means px), and equal width and height with a half-size radius renders a circle. Failed loads leave the original text readable.
 
-### Whole-line styling
+### Whole-line styling and once-per-note rules
 
-Enable **Apply style to the whole line** to paint the logical line containing a match, soft wrapping included. Regular-expression `^` and `$` anchors match each logical line consistently in the editor and reading view.
+Enable **Apply style to the whole line** to paint the logical line containing a match, soft wrapping included. Right beside it, **Only once per note** keeps later matches plain so a frequent character name is decorated only at its first occurrence. Regular-expression `^` and `$` anchors match each logical line consistently in the editor and reading view.
 
 ### Precise boundaries
 
@@ -93,7 +93,7 @@ The aliases come from [gemoji](https://github.com/github/gemoji), with an additi
 
 Choose **Vault image** to search image names and full paths, with thumbnails. The picker saves the full vault path so files with identical names in different folders remain distinct. You can also enter a vault path or wikilink manually.
 
-Choose **SVG code** and paste a complete `<svg>…</svg>` element. Active content and external references are removed before display. Configure width and height in pixels; images keep their proportions inside this box.
+Choose **SVG code** and paste a complete `<svg>…</svg>` element. Active content and external references are removed before display. Configure width, height and corner radius in px or em; images keep their proportions inside this box.
 
 Choose **Image URL** to paste a direct HTTP or HTTPS image link, including URLs with query parameters. Network images share the same size and hide-text controls as vault images. The preview loads the image directly from its host, without sending a referrer. Invalid links and failed loads leave the original text readable.
 

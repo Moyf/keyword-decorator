@@ -7,6 +7,7 @@ export interface MatchRule {
   enabled?: boolean;
   hideText?: boolean;
   styleWholeLine?: boolean;
+  decorateOnce?: boolean;
 }
 
 export interface CompiledRule {
@@ -143,4 +144,54 @@ export function findMatchesInRanges(text: string, ranges: readonly { from: numbe
     }
   }
   return Array.from(found.values()).sort((a, b) => a.priority - b.priority || a.from - b.from || b.to - a.to);
+}
+
+/** First resolved match per rule across a complete document, for rules that decorate only once. */
+export function firstMatchesByRule(text: string, rules: CompiledRule[], accepts?: (match: TextMatch) => boolean): Map<string, TextMatch> {
+  const first = new Map<string, TextMatch>();
+  // Each once rule gets its own budget. Ordinary rules (or earlier once rules)
+  // must not consume the document scan's shared candidate limit.
+  for (const rule of rules) {
+    if (!rule.rule.decorateOnce) continue;
+    const match = findMatches(text, [rule], accepts)[0];
+    if (match) first.set(rule.ruleId, match);
+  }
+  return first;
+}
+
+export interface FirstOccurrenceTarget { text: string; ordinal: number }
+
+/**
+ * Keep only the occurrence that mirrors the document-level first match.
+ * The section offset is measured in source characters. Convert it to an
+ * occurrence count separately for each target text; an unknown offset keeps
+ * every occurrence visible.
+ */
+export function filterFirstOccurrenceMatches(matches: TextMatch[], blockText: string, targets: Map<string, FirstOccurrenceTarget>, source: string, sectionCharOffset: number | null): TextMatch[] {
+  if (!targets.size || sectionCharOffset === null) return matches;
+  const baseByText = new Map<string, number>();
+  return matches.filter(match => {
+    if (!match.rule.decorateOnce) return true;
+    const target = targets.get(match.ruleId);
+    if (!target) return true;
+    if (blockText.slice(match.from, match.to) !== target.text) return false;
+    let base = baseByText.get(target.text);
+    if (base === undefined) {
+      base = countOccurrencesBefore(source, target.text, sectionCharOffset);
+      baseByText.set(target.text, base);
+    }
+    return base +
+      countOccurrencesBefore(blockText, target.text, match.from) === target.ordinal;
+  });
+}
+
+export function countOccurrencesBefore(text: string, needle: string, end: number): number {
+  if (!needle) return 0;
+  let count = 0;
+  let from = 0;
+  while ((from = text.indexOf(needle, from)) !== -1 && from < end) {
+    count++;
+    from += needle.length;
+  }
+  return count;
 }

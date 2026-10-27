@@ -40,6 +40,44 @@ export interface ExcludedRange {
 const excludedToken = /^(?:link|url|image|formatting|inline-code|code|comment|math|hashtag|tag|attribute|string|meta|footref|hmd-(?:barelink\d*|internal-link|embed|frontmatter|codeblock|indented-code|math|footnote|footref\d*|blockid|html|cdata))(?:-|$)/;
 const excludedLine = /^(?:HyperMD-(?:codeblock|frontmatter|footnote)|hmd-(?:codeblock|frontmatter))(?:-|$)/;
 
+/** Source counterpart to the editor's frontmatter/code-block line exclusions. */
+export function excludedMarkdownLineRanges(source: string): ExcludedRange[] {
+  const ranges: ExcludedRange[] = [];
+  let frontmatter = false;
+  let fence: { character: string; length: number } | undefined;
+  let start = 0;
+  let offset = 0;
+  for (const line of source.split("\n")) {
+    const end = Math.min(source.length, offset + line.length + 1);
+    const text = line.replace(/\r$/, "");
+    if (offset === 0 && /^\uFEFF?---\s*$/.test(text)) {
+      frontmatter = true;
+      start = offset;
+    } else if (frontmatter) {
+      if (/^(?:---|\.\.\.)\s*$/.test(text)) {
+        ranges.push({ from: start, to: end });
+        frontmatter = false;
+      }
+    } else {
+      // Strip blockquote/list containers before recognizing their fence lines.
+      const content = text.replace(/^[ \t]*(?:>[ \t]*)+/, "").replace(/^[ \t]*(?:[-+*]|\d+[.)])[ \t]+/, "");
+      const marker = content.match(/^[ \t]*(`{3,}|~{3,})(.*)$/);
+      if (fence) {
+        if (marker && marker[1][0] === fence.character && marker[1].length >= fence.length && !marker[2].trim()) {
+          ranges.push({ from: start, to: end });
+          fence = undefined;
+        }
+      } else if (marker && (marker[1][0] !== "`" || !marker[2].includes("`"))) {
+        start = offset;
+        fence = { character: marker[1][0], length: marker[1].length };
+      }
+    }
+    offset = end;
+  }
+  if (frontmatter || fence) ranges.push({ from: start, to: source.length });
+  return ranges;
+}
+
 export function excludedEditorRanges(state: EditorState, from: number, to: number): ExcludedRange[] {
   const ranges: ExcludedRange[] = [];
   const tree = syntaxTree(state);

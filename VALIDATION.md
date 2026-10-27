@@ -1,5 +1,32 @@
 # Validation
 
+## 2026-10-28 PR #12 review fixes
+
+- Reading-view section positions stay in source-character units until converted
+  to occurrence counts separately for each once target's text. Missing, invalid
+  or out-of-range section positions fall back to decorating all occurrences.
+- Reading source scans exclude frontmatter and fenced code. CRLF/BOM, backtick,
+  tilde and quoted fences are checked against the editor's line-class exclusion
+  behavior; the editor retains its native syntax-tree exclusions.
+- Each once rule scans independently so ordinary rules and earlier once rules
+  cannot exhaust its document-target budget. A missing target keeps decorations
+  visible in both rendering paths. Multiple blocks in one rendered section do
+  not duplicate a located once target.
+- Image-size schema strings enforce case-insensitive px/em units, integer px
+  sizes from 1 to 512, and positive em sizes up to 32. The three size fields are
+  compared with the runtime parser across normal forms and boundary values.
+- Size inputs preserve incomplete drafts while focused, restore the effective
+  value on blur after invalid input, and reset cleared width/height to 24.
+- The existing Node test runner now executes 106 tests (94 existing plus 12 new).
+  New DOM tests call the real reading-view entry point through asynchronous
+  vault reads and caching, and the real appearance renderer through input/blur
+  events. Only host APIs and synthetic note data are supplied by fixtures;
+  `linkedom` is a pinned development dependency.
+- The new reading integrations reproduce failures against original PR commit
+  `f28adbb`; the fixed implementation passes. `pnpm test`, `pnpm lint`,
+  `pnpm build` and `git diff --check` pass with Node 24.22.1 / pnpm 11.20.0.
+  No native Obsidian/vault interaction or publication is part of these checks.
+
 ## 2026-10-27 Review decisions (Moy)
 
 - Remove the legacy `editorViewField` fallback and its unused mock export:

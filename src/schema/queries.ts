@@ -1,3 +1,5 @@
+import { IMAGE_SIZE_PATTERN } from "../image-size";
+
 export const queriesSchema = {
   $schema: "http://json-schema.org/draft-07/schema#",
   additionalProperties: {
@@ -56,18 +58,29 @@ export const queriesSchema = {
         styleWholeLine: {
           type: "boolean",
         },
+        decorateOnce: {
+          type: "boolean",
+        },
         hideText: {
           type: "boolean",
         },
         imageWidth: {
-          maximum: 512,
-          minimum: 1,
-          type: "integer",
+          anyOf: [
+            { type: "integer", minimum: 1, maximum: 512 },
+            { type: "string", pattern: IMAGE_SIZE_PATTERN },
+          ],
         },
         imageHeight: {
-          maximum: 512,
-          minimum: 1,
-          type: "integer",
+          anyOf: [
+            { type: "integer", minimum: 1, maximum: 512 },
+            { type: "string", pattern: IMAGE_SIZE_PATTERN },
+          ],
+        },
+        imageCornerRadius: {
+          anyOf: [
+            { type: "integer", minimum: 1, maximum: 512 },
+            { type: "string", pattern: IMAGE_SIZE_PATTERN },
+          ],
         },
         queryMode: {
           enum: ["keywords", "single", "multiple", "regex", "emoji-shortcodes"],

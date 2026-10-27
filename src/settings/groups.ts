@@ -2,7 +2,8 @@ import type { RuleAppearance, RuleGroup, SearchQueries, SearchQuery, StaticHighl
 
 export const appearanceKeys = [
   "class", "color", "textColor", "fontWeight", "italic", "underline", "prefixType", "prefixValue", "prefixValues", "css",
-  "hideText", "imageWidth", "imageHeight", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine",
+  "hideText", "imageWidth", "imageHeight", "imageCornerRadius", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine",
+  "decorateOnce",
 ] as const as readonly (keyof RuleAppearance)[];
 
 /** Return a display-ready rule without changing the stored rule or group style. */
@@ -16,6 +17,7 @@ export function getEffectiveRule(rule: SearchQuery, groups?: Record<string, Rule
   effective.iconInheritColor ??= true;
   effective.backgroundIncludesMarker ??= false;
   effective.styleWholeLine ??= false;
+  effective.decorateOnce ??= false;
   return effective;
 }
 

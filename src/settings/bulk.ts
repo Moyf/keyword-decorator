@@ -1,6 +1,7 @@
 import { App, ButtonComponent, Modal, Setting, TextAreaComponent } from "obsidian";
 import { localize, t } from "../i18n";
-import { DynamicHighlightsSettings, MAX_IMAGE_DIMENSION, normalizeSearchQuery, normalizeSettings, RuleGroup, SearchQueries, SearchQuery } from "./settings";
+import { parseImageSize } from "../image-size";
+import { DynamicHighlightsSettings, normalizeSearchQuery, normalizeSettings, RuleGroup, SearchQueries, SearchQuery } from "./settings";
 
 export interface BulkParseResult {
   rules: SearchQueries;
@@ -16,7 +17,7 @@ type JsonRuleData = { entries: JsonRuleEntry[]; groups?: Record<string, RuleGrou
 
 const APPEARANCE_FIELDS = [
   "class", "color", "textColor", "fontWeight", "italic", "underline", "prefixType", "prefixValue", "css",
-  "hideText", "imageWidth", "imageHeight", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine", "prefixValues",
+  "hideText", "imageWidth", "imageHeight", "imageCornerRadius", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine", "decorateOnce", "prefixValues",
 ] as const;
 
 function newRuleId(used: Set<string>): string {
@@ -180,10 +181,9 @@ export function parseBulkRules(
       errors.push(`${label}: unsupported prefix type.`);
       return;
     }
-    for (const field of ["imageWidth", "imageHeight"]) {
-      const dimension = candidate[field];
-      if (dimension !== undefined && (typeof dimension !== "number" || !Number.isInteger(dimension) || dimension < 1 || dimension > MAX_IMAGE_DIMENSION)) {
-        errors.push(`${label}: ${field} must be 1–${MAX_IMAGE_DIMENSION} pixels.`);
+    for (const field of ["imageWidth", "imageHeight", "imageCornerRadius"]) {
+      if (candidate[field] !== undefined && !parseImageSize(candidate[field])) {
+        errors.push(`${label}: ${field} must be a size like 24, 24px or 1.5em.`);
         return;
       }
     }

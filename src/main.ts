@@ -1,18 +1,21 @@
 import { Extension } from "@codemirror/state";
-import { MarkdownRenderChild, MarkdownView, Plugin, TAbstractFile, TFile } from "obsidian";
+import { MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownView, Plugin, TAbstractFile, TFile } from "obsidian";
 import { buildStyles, staticHighlighterExtension } from "./highlighters/static";
-import { compileRules, CompiledRule, findMatches, TextMatch } from "./highlighters/matching";
+import { compileRules, CompiledRule, countOccurrencesBefore, filterFirstOccurrenceMatches, findMatches, firstMatchesByRule, FirstOccurrenceTarget, TextMatch } from "./highlighters/matching";
 import addIcons from "./icons/customIcons";
 import { clearImageCache, createPrefixNode } from "./markers";
 import { DynamicHighlightsSettings, normalizeSettings } from "./settings/settings";
 import { SettingTab } from "./settings/ui";
 import { getEffectiveQueries } from "./settings/groups";
 import { installDefaultPresets } from "./settings/presets";
-import { isReadingBody, isReadingText, READING_EXCLUDED_SELECTOR } from "./highlighters/scope";
+import { excludedMarkdownLineRanges, isReadingBody, isReadingText, overlapsExcludedRange, READING_EXCLUDED_SELECTOR } from "./highlighters/scope";
 import { scopeCustomCSS } from "./highlighters/custom-css";
 
 interface CustomCSS { css: string; enabled: boolean }
 interface PendingSave { resolve: () => void; reject: (error: unknown) => void }
+interface ReadingOnceData { token: number; mtime: number; source: string; lineStarts: number[]; targets: Map<string, FirstOccurrenceTarget>; failed?: boolean }
+const emptyOnceData: ReadingOnceData = { token: -1, mtime: -1, source: "", lineStarts: [], targets: new Map() };
+const MAX_READING_ONCE_CACHE = 12;
 
 export default class DynamicHighlightsPlugin extends Plugin {
   settings: DynamicHighlightsSettings;
@@ -33,6 +36,8 @@ export default class DynamicHighlightsPlugin extends Plugin {
   private customCSSInitialized = false;
   private readonly settingsDocuments = new Map<Document, number>();
   private imageRefreshTimer: number | null = null;
+  private readingOnceCache = new Map<string, ReadingOnceData>();
+  private readingRulesToken = 0;
 
   async onload() {
     await this.loadSettings();
@@ -46,16 +51,17 @@ export default class DynamicHighlightsPlugin extends Plugin {
     this.initCSS();
     this.registerEvent(this.app.workspace.on("window-open", () => this.syncCustomCSS()));
     this.registerMarkdownPostProcessor((el, ctx) => {
-      if (el.isConnected) { this.decorateReadingView(el); return; }
+      if (el.isConnected) { this.decorateReadingView(el, ctx); return; }
       const child = new MarkdownRenderChild(el);
       child.onload = () => {
         const win = el.ownerDocument.defaultView;
         if (!win) return;
-        const frame = win.requestAnimationFrame(() => this.decorateReadingView(el));
+        const frame = win.requestAnimationFrame(() => this.decorateReadingView(el, ctx));
         child.register(() => win.cancelAnimationFrame(frame));
       };
       ctx.addChild(child);
     });
+    this.register(() => this.readingOnceCache.clear());
     this.lastAppliedSettings = this.runtimeSignature();
     this.registerEvent(this.app.vault.on("create", file => this.onVaultFileChanged(file)));
     this.registerEvent(this.app.vault.on("delete", file => this.onVaultFileChanged(file)));
@@ -293,25 +299,83 @@ export default class DynamicHighlightsPlugin extends Plugin {
         ? compileRules(getEffectiveQueries(this.settings.staticHighlighter), this.settings.staticHighlighter.queryOrder)
         : [];
       this.readingRulesDirty = false;
+      this.readingRulesToken++;
     }
     return this.compiledReading;
   }
 
-  decorateReadingView(rootEl: HTMLElement) {
+  /** Cached once-per-note targets, or a ready marker when the source still needs to be read. */
+  private readingOnceState(sourcePath: string): { ready: boolean; data: ReadingOnceData } {
+    if (!this.getReadingRules().some(rule => rule.rule.decorateOnce)) return { ready: true, data: emptyOnceData };
+    const file = this.app.vault.getAbstractFileByPath(sourcePath);
+    const mtime = file instanceof TFile ? file.stat.mtime : -1;
+    const cached = this.readingOnceCache.get(sourcePath);
+    if (cached && cached.token === this.readingRulesToken && cached.mtime === mtime) return { ready: true, data: cached };
+    return { ready: false, data: emptyOnceData };
+  }
+
+  private async loadReadingOnceData(sourcePath: string): Promise<void> {
+    const token = this.readingRulesToken;
+    const file = this.app.vault.getAbstractFileByPath(sourcePath);
+    const mtime = file instanceof TFile ? file.stat.mtime : -1;
+    try {
+      if (!(file instanceof TFile)) throw new Error("The note is not readable.");
+      const source = await this.app.vault.cachedRead(file);
+      const targets = new Map<string, FirstOccurrenceTarget>();
+      const excluded = excludedMarkdownLineRanges(source);
+      for (const match of firstMatchesByRule(source, this.getReadingRules(),
+        match => !overlapsExcludedRange(excluded, match.from, match.to)).values()) {
+        const text = source.slice(match.from, match.to);
+        targets.set(match.ruleId, { text, ordinal: countOccurrencesBefore(source, text, match.from) });
+      }
+      while (this.readingOnceCache.size >= MAX_READING_ONCE_CACHE) {
+        const [oldest] = Array.from(this.readingOnceCache.keys());
+        if (oldest === undefined) break;
+        this.readingOnceCache.delete(oldest);
+      }
+      this.readingOnceCache.set(sourcePath, { token, mtime, source, lineStarts: lineStartOffsets(source), targets });
+    } catch {
+      this.readingOnceCache.set(sourcePath, { token, mtime, source: "", lineStarts: [], targets: new Map(), failed: true });
+    }
+  }
+
+  decorateReadingView(rootEl: HTMLElement, ctx?: MarkdownPostProcessorContext) {
     if (!isReadingBody(rootEl)) return;
     const compiledRules = this.getReadingRules();
     if (!compiledRules.length) return;
     const doc = rootEl.ownerDocument;
+    let onceTargets: Map<string, FirstOccurrenceTarget> | undefined;
+    let onceSource = "";
+    let sectionCharOffset: number | null = null;
+    if (ctx?.sourcePath && compiledRules.some(rule => rule.rule.decorateOnce)) {
+      const state = this.readingOnceState(ctx.sourcePath);
+      if (!state.ready) {
+        void this.loadReadingOnceData(ctx.sourcePath).then(() => {
+          if (rootEl.isConnected) this.decorateReadingView(rootEl, ctx);
+        });
+        return;
+      }
+      if (!state.data.failed) {
+        onceTargets = state.data.targets;
+        onceSource = state.data.source;
+        sectionCharOffset = onceSectionCharOffset(ctx, rootEl, state.data.lineStarts);
+      }
+    }
     const blockSelector = "p,h1,h2,h3,h4,h5,h6,li,blockquote,td,th";
     const blocks = Array.from(rootEl.querySelectorAll<HTMLElement>(blockSelector));
     if (rootEl.matches(blockSelector)) blocks.unshift(rootEl);
     const excluded = READING_EXCLUDED_SELECTOR;
+    const renderedOnceRules = new Set<string>();
     for (const block of blocks) {
       if (!isReadingText(block)) continue;
       const flat = flattenReadingBlock(block, blockSelector, excluded);
       if (!flat.text) continue;
-      const matches = findMatches(flat.text, compiledRules, match => !flat.text.slice(match.from, match.to).includes("\u0000"));
+      const found = findMatches(flat.text, compiledRules, match => !flat.text.slice(match.from, match.to).includes("\u0000"));
+      const located = onceTargets ? filterFirstOccurrenceMatches(found, flat.text, onceTargets, onceSource, sectionCharOffset) : found;
+      const matches = located.filter(match => !match.rule.decorateOnce || !onceTargets?.has(match.ruleId) ||
+        sectionCharOffset === null || !renderedOnceRules.has(match.ruleId));
       if (!matches.length) continue;
+      for (const match of matches) if (match.rule.decorateOnce) renderedOnceRules.add(match.ruleId);
       const wholeLines = new Map<number, TextMatch>();
       const hiddenMatches = new Set<string>();
       const hiddenElements = new Map<string, HTMLElement[]>();
@@ -439,6 +503,20 @@ function flattenReadingBlock(block: HTMLElement, blockSelector: string, excluded
 
 function lineStart(text: string, offset: number) {
   return offset <= 0 ? 0 : text.lastIndexOf("\n", offset - 1) + 1;
+}
+
+function lineStartOffsets(text: string): number[] {
+  const starts = [0];
+  for (let index = text.indexOf("\n"); index !== -1; index = text.indexOf("\n", index + 1)) starts.push(index + 1);
+  return starts;
+}
+
+/** Character offset of the rendered section's first source line, or null when it cannot be located. */
+function onceSectionCharOffset(ctx: MarkdownPostProcessorContext, rootEl: HTMLElement, lineStarts: number[]): number | null {
+  const section = typeof ctx.getSectionInfo === "function" ? ctx.getSectionInfo(rootEl) : null;
+  const startLine = section?.lineStart;
+  if (startLine === undefined || !Number.isInteger(startLine) || startLine < 0) return null;
+  return lineStarts[startLine] ?? null;
 }
 
 function internalClassName(ruleId: string) {

@@ -1,5 +1,8 @@
 import type { SelectionHighlightOptions } from "../highlighters/selection";
+import { MAX_IMAGE_DIMENSION, parseImageSize, toStoredImageSize } from "../image-size";
 import { ignoredWords } from "./ignoredWords";
+
+export { MAX_IMAGE_DIMENSION };
 
 export type markTypes = "line" | "match" | "group" | "start" | "end";
 export type PrefixType = "none" | "emoji" | "icon" | "image" | "url" | "svg";
@@ -27,8 +30,10 @@ export interface SearchQuery {
   css?: string;
   enabled?: boolean;
   hideText?: boolean;
-  imageWidth?: number;
-  imageHeight?: number;
+  imageWidth?: number | string;
+  imageHeight?: number | string;
+  imageCornerRadius?: number | string;
+  decorateOnce?: boolean;
   groupId?: string;
   iconInheritColor?: boolean;
   backgroundIncludesMarker?: boolean;
@@ -85,7 +90,6 @@ export const DEFAULT_SETTINGS: DynamicHighlightsSettings = {
 const validPrefixTypes: PrefixType[] = ["none", "emoji", "icon", "image", "url", "svg"];
 const validQueryModes: QueryMode[] = ["keywords", "single", "multiple", "regex", "emoji-shortcodes"];
 const validMarks: markTypes[] = ["line", "match", "group", "start", "end"];
-export const MAX_IMAGE_DIMENSION = 512;
 
 type RecordValue = Record<string, unknown>;
 
@@ -93,8 +97,10 @@ function isRecord(value: unknown): value is RecordValue {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isPositiveDimension(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && Number.isInteger(value) && value > 0 && value <= MAX_IMAGE_DIMENSION;
+/** Keep px sizes as numbers and em sizes as strings; anything malformed is dropped. */
+function normalizedImageSize(value: unknown): number | string | undefined {
+  const size = parseImageSize(value);
+  return size ? toStoredImageSize(size) : undefined;
 }
 
 export function normalizeSearchQuery(value: unknown): SearchQuery | null {
@@ -116,9 +122,9 @@ export function normalizeSearchQuery(value: unknown): SearchQuery | null {
     queryMode: mode,
   };
   const knownFields = new Set([
-    "query", "regex", "queryMode", "hideText", "imageWidth", "imageHeight", "class", "name", "color", "textColor",
+    "query", "regex", "queryMode", "hideText", "imageWidth", "imageHeight", "imageCornerRadius", "class", "name", "color", "textColor",
     "fontWeight", "italic", "underline", "prefixType", "prefixValue", "css", "enabled", "mark", "groupId",
-    "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine", "prefixValues",
+    "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine", "decorateOnce", "prefixValues",
   ]);
   for (const [key, extra] of Object.entries(value)) {
     if (key !== "__proto__" && !knownFields.has(key)) {
@@ -137,8 +143,6 @@ export function normalizeSearchQuery(value: unknown): SearchQuery | null {
   if (typeof value.css === "string") query.css = value.css;
   if (typeof value.enabled === "boolean") query.enabled = value.enabled;
   if (typeof value.hideText === "boolean") query.hideText = value.hideText;
-  if (isPositiveDimension(value.imageWidth)) query.imageWidth = value.imageWidth;
-  if (isPositiveDimension(value.imageHeight)) query.imageHeight = value.imageHeight;
   if (typeof value.groupId === "string" && value.groupId.trim()) query.groupId = value.groupId;
   if (typeof value.iconInheritColor === "boolean") query.iconInheritColor = value.iconInheritColor;
   if (typeof value.backgroundIncludesMarker === "boolean") query.backgroundIncludesMarker = value.backgroundIncludesMarker;
@@ -149,6 +153,11 @@ export function normalizeSearchQuery(value: unknown): SearchQuery | null {
       if (validPrefixTypes.includes(type as PrefixType) && typeof prefixValue === "string") prefixValues[type as PrefixType] = prefixValue;
     }
     query.prefixValues = prefixValues;
+  }
+  if (typeof value.decorateOnce === "boolean") query.decorateOnce = value.decorateOnce;
+  for (const key of ["imageWidth", "imageHeight", "imageCornerRadius"] as const) {
+    const size = normalizedImageSize(value[key]);
+    if (size !== undefined) query[key] = size;
   }
   if (mark) query.mark = mark;
   return query;
@@ -232,7 +241,7 @@ function normalizeRuleAppearance(value: unknown): RuleAppearance | undefined {
   const blocked = new Set(["query", "regex", "queryMode", "name", "enabled", "groupId", "mark"]);
   const known = new Set([
     ...blocked, "class", "color", "textColor", "fontWeight", "italic", "underline", "prefixType", "prefixValue", "prefixValues",
-    "css", "hideText", "imageWidth", "imageHeight", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine",
+    "css", "hideText", "imageWidth", "imageHeight", "imageCornerRadius", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine", "decorateOnce",
   ]);
   for (const [key, item] of Object.entries(value)) {
     if (key !== "__proto__" && !known.has(key)) {
@@ -242,10 +251,13 @@ function normalizeRuleAppearance(value: unknown): RuleAppearance | undefined {
   const strings = ["class", "fontWeight", "prefixValue", "css"];
   for (const key of strings) if (typeof value[key] === "string") appearance[key] = value[key];
   for (const key of ["color", "textColor"]) if (typeof value[key] === "string" || value[key] === null) appearance[key] = value[key];
-  for (const key of ["italic", "underline", "hideText", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine"])
+  for (const key of ["italic", "underline", "hideText", "iconInheritColor", "backgroundIncludesMarker", "styleWholeLine", "decorateOnce"])
     if (typeof value[key] === "boolean") appearance[key] = value[key];
   if (validPrefixTypes.includes(value.prefixType as PrefixType)) appearance.prefixType = value.prefixType;
-  for (const key of ["imageWidth", "imageHeight"]) if (isPositiveDimension(value[key])) appearance[key] = value[key];
+  for (const key of ["imageWidth", "imageHeight", "imageCornerRadius"] as const) {
+    const size = normalizedImageSize(value[key]);
+    if (size !== undefined) appearance[key] = size;
+  }
   if (isRecord(value.prefixValues)) {
     const prefixValues: Partial<Record<PrefixType, string>> = {};
     for (const [type, prefixValue] of Object.entries(value.prefixValues))
