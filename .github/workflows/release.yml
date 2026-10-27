@@ -44,6 +44,6 @@ jobs:
         # false), so fetch it explicitly. Use %(contents), since
         # %(contents:body) would drop the tag's subject paragraph.
         run: |
-          git fetch origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME" --no-tags
+          git fetch origin "+refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME" --no-tags
           git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > release-notes.md
           gh release create "$GITHUB_REF_NAME" dist/main.js dist/manifest.json dist/styles.css --title "$GITHUB_REF_NAME" --verify-tag --notes-file release-notes.md
