@@ -39,5 +39,8 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        # Release notes come from the annotated tag message.
-        run: gh release create "$GITHUB_REF_NAME" dist/main.js dist/manifest.json dist/styles.css --title "$GITHUB_REF_NAME" --verify-tag
+        # Release notes come from the annotated tag message. Pass them
+        # explicitly: non-interactive gh no longer inherits tag messages.
+        run: |
+          git tag -l --format='%(contents:body)' "$GITHUB_REF_NAME" > release-notes.md
+          gh release create "$GITHUB_REF_NAME" dist/main.js dist/manifest.json dist/styles.css --title "$GITHUB_REF_NAME" --verify-tag --notes-file release-notes.md
