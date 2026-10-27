@@ -49,8 +49,8 @@ export function excludedEditorRanges(state: EditorState, from: number, to: numbe
     from,
     to,
     enter(node) {
-      const tokens = node.type.prop(tokenClassNodeProp)?.split(" ") || [];
-      const lines = node.type.prop(lineClassNodeProp)?.split(" ") || [];
+      const tokens = node.type.prop<string>(tokenClassNodeProp)?.split(" ") || [];
+      const lines = node.type.prop<string>(lineClassNodeProp)?.split(" ") || [];
       if (lines.some(token => excludedLine.test(token))) {
         const first = state.doc.lineAt(node.from);
         const last = state.doc.lineAt(Math.max(node.from, node.to - 1));
