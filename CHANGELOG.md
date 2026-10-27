@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.3] - 2026-10-27
+
+### ⚡ Changed
+
+- **Build sandbox compatibility**: Allow the plugin's build scripts under both pnpm 10 and pnpm 11 sandboxes and re-verify the build in a clean environment; CodeMirror prop lookups carry explicit type annotations. No runtime behavior change.
+
+<details>
+<summary>中文说明（点击展开）</summary>
+
+### ⚡ 调整
+
+- **构建沙箱兼容**：构建脚本白名单同时覆盖 pnpm 10 与 pnpm 11 沙箱，并在干净环境下重新验证构建；CodeMirror prop 读取补充显式类型标注。运行时行为不变。
+
+</details>
+
 ## [0.3.2] - 2026-10-27
 
 ### 🐛 Fixed
