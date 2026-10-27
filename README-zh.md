@@ -164,18 +164,18 @@ Important
 ## 开发
 
 ```sh
-npm install
+pnpm install
 ```
 
 将 `.env.example` 复制为 `.env`，并把 `VAULT_PATH` 指向一个包含 `.obsidian` 的 Obsidian 库。复制脚本优先读取进程环境变量，其次查找仓库及父目录中的 `.env`；相对路径按命中的 `.env` 所在目录解析。
 
 ```sh
-npm run test
-npm run lint
-npm run build:local
+pnpm run test
+pnpm run lint
+pnpm run build:local
 ```
 
-构建产物在 `dist/`。本地构建只复制插件资产，不会覆盖库中的 `data.json`。重新加载插件后打开设置即可；Hot Reload 生效时可用 `npm run build:local:set` 一键构建并打开设置页。
+构建产物在 `dist/`。本地构建只复制插件资产，不会覆盖库中的 `data.json`。重新加载插件后打开设置即可；Hot Reload 生效时可用 `pnpm run build:local:set` 一键构建并打开设置页。
 
 ## 许可
 
