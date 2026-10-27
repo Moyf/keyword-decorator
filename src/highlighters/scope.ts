@@ -1,5 +1,5 @@
 import { lineClassNodeProp, syntaxTree, tokenClassNodeProp } from "@codemirror/language";
-import { EditorState, StateField } from "@codemirror/state";
+import { EditorState } from "@codemirror/state";
 import * as obsidian from "obsidian";
 
 export const EDITOR_SCOPE_CLASS = "keyword-decorator-editor-scope";
@@ -20,10 +20,7 @@ export const READING_EXCLUDED_SELECTOR = [
 export function canDecorateEditor(state: EditorState, decorateInSourceMode: boolean): boolean {
   // Other plugins can also host CodeMirror editors (for example in a dialog).
   // Only a Markdown file view is a note body.
-  // The legacy export is only needed on hosts predating editorInfoField.
-  // Validate that compatibility boundary, then narrow the field's value.
-  const viewField: unknown = obsidian.editorInfoField ?? Reflect.get(obsidian, "editorViewField");
-  return viewField instanceof StateField && state.field(viewField, false) instanceof obsidian.MarkdownView &&
+  return state.field(obsidian.editorInfoField, false) instanceof obsidian.MarkdownView &&
     (state.field(obsidian.editorLivePreviewField, false) === true || decorateInSourceMode === true);
 }
 

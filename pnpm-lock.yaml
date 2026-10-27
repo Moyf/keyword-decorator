@@ -81,7 +81,7 @@ importers:
         specifier: ^2.2.0
         version: 2.3.0
       obsidian:
-        specifier: ^1.14.4
+        specifier: 1.14.4
         version: 1.14.4(@codemirror/state@6.7.6)(@codemirror/view@6.43.15)
       regexp-match-indices:
         specifier: ^1.0.2

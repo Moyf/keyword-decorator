@@ -1,5 +1,16 @@
 # Validation
 
+## 2026-10-27 Review decisions (Moy)
+
+- Remove the legacy `editorViewField` fallback and its unused mock export:
+  `minAppVersion: 1.13.0` guarantees `editorInfoField` is available.
+- Pin the Obsidian development dependency to exactly `1.14.4` in both npm and
+  pnpm lockfiles so independent dependency resolution cannot change the API
+  version used for `@since` checks.
+- Keep the explicit `no-unsafe-*` rule overrides scoped to `src/**`; do not
+  expand their scope as part of this review. This is a recorded decision only,
+  with no ESLint configuration change.
+
 ## 2026-10-22 Responsive workbench and group transfer
 
 - 88 Node tests pass on the current main baseline, including multi-rule ordering, group-only export, repeated

@@ -48,7 +48,7 @@
     "eslint-plugin-obsidianmd": "^0.4.2",
     "globals": "^16.4.0",
     "monkey-around": "^2.2.0",
-    "obsidian": "^1.14.4",
+    "obsidian": "1.14.4",
     "regexp-match-indices": "^1.0.2",
     "style-mod": "^4.1.4",
     "stylelint": "^14.2.0",
