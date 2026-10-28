@@ -140,3 +140,24 @@ review, so the new buttons were not tested in the native Settings window.
 - 普通规则不再把内置组作为所属分组选项，新建规则和规则拖动不会误入内置组。旧的未分组短码规则仍可用专用控件管理。
 - 48 项 Node 测试、项目 lint、TypeScript、本地构建及差异检查通过；33 项隔离宿主检查覆盖专用 UI、状态同步、未分组及混合组的双向开关和旧配置兼容，前后用户设置与 data.json 哈希不变。安装重载后逐字段确认全部现有设置一致。
 - 官方 PR 预演为 0 errors、10 项既有 CSS 兼容性 warnings；本地缺少 GITHUB_STEP_SUMMARY 的 action 退出提示与前次相同。未执行版本发布。
+
+## 2026-10-29 Store review fixes for 0.4.0
+
+- Base: `origin/main` at `c22f10d6e4901ff76e871b57e8ee2cea127e1650`.
+- Internal CodeMirror class props cross an `unknown` boundary, pass an
+  `instanceof NodeProp` check before `NodeType.prop`, and require a string
+  value before splitting. No lint rules are suppressed.
+- Regression coverage includes missing/non-string token and line class values.
+  The new case fails against the baseline with `split is not a function`.
+- The base already tracks top-level `onlyBuiltDependencies` in
+  `pnpm-workspace.yaml` (with pnpm 11 `allowBuilds` compatibility), and has no
+  `package.json` `pnpm` field; no further configuration migration is needed.
+- Node 24.22.1 / pnpm 11.20.0: `pnpm test` passes 109/109; `pnpm lint` passes
+  without errors or warnings; `pnpm build` passes TypeScript and esbuild.
+- Clean local clone of the base plus this patch, with no `node_modules` and an
+  empty independent store: `pnpm install --frozen-lockfile --store-dir <store>`
+  passes (30.2s, packages downloaded rather than reused), then `pnpm build`
+  passes. No ignored `pnpm.onlyBuiltDependencies` warning or build-permission
+  error occurs. Upstream prepare emits npm environment/deprecation warnings
+  for `manage-package-manager-versions`, `inflight`, and `glob`.
+- `git diff --check` passes. No version change, push, merge, or release.

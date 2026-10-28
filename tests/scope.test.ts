@@ -9,7 +9,7 @@ import { normalizeSettings } from "../src/settings/settings";
 import { ExportModal } from "../src/settings/export";
 import { applySettingsImport, parseSettingsImport } from "../src/settings/import";
 
-function stateWithTokens(doc: string, tokens: { from: number; to: number; classes: string; line?: boolean }[], parsedLength = doc.length): EditorState {
+function stateWithTokens(doc: string, tokens: { from: number; to: number; classes: string | number | undefined; line?: boolean }[], parsedLength = doc.length): EditorState {
   const state = EditorState.create({ doc });
   const children = tokens.map((token, id) => new Tree(NodeType.define({
     id: id + 1,
@@ -74,6 +74,16 @@ void test("headings, emphasis and table text remain eligible", () => {
   const doc = "heading bold table";
   const state = stateWithTokens(doc, [{ from: 0, to: doc.length, classes: "header strong em" }]);
   assert.deepEqual(excludedEditorRanges(state, 0, doc.length), []);
+});
+
+void test("missing or non-string internal class props are ignored for tokens and lines", () => {
+  const doc = "ordinary keyword";
+  for (const line of [false, true]) {
+    for (const classes of [undefined, 42]) {
+      const state = stateWithTokens(doc, [{ from: 0, to: doc.length, classes, line }]);
+      assert.deepEqual(excludedEditorRanges(state, 0, doc.length), []);
+    }
+  }
 });
 
 void test("whole-line styles split around protected links, code and overlapping exclusions", () => {
