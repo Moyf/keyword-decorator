@@ -1,5 +1,6 @@
 import { lineClassNodeProp, syntaxTree, tokenClassNodeProp } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
+import { NodeProp, NodeType } from "@lezer/common";
 import * as obsidian from "obsidian";
 
 export const EDITOR_SCOPE_CLASS = "keyword-decorator-editor-scope";
@@ -39,6 +40,14 @@ export interface ExcludedRange {
 
 const excludedToken = /^(?:link|url|image|formatting|inline-code|code|comment|math|hashtag|tag|attribute|string|meta|footref|hmd-(?:barelink\d*|internal-link|embed|frontmatter|codeblock|indented-code|math|footnote|footref\d*|blockid|html|cdata))(?:-|$)/;
 const excludedLine = /^(?:HyperMD-(?:codeblock|frontmatter|footnote)|hmd-(?:codeblock|frontmatter))(?:-|$)/;
+
+function nodeClasses(type: NodeType, property: unknown): string[] {
+  // Obsidian's CodeMirror fork exposes internal props with varying declaration
+  // coverage. Validate the prop and its value at that dependency boundary.
+  if (!(property instanceof NodeProp)) return [];
+  const value: unknown = type.prop(property);
+  return typeof value === "string" ? value.split(" ") : [];
+}
 
 /** Source counterpart to the editor's frontmatter/code-block line exclusions. */
 export function excludedMarkdownLineRanges(source: string): ExcludedRange[] {
@@ -87,8 +96,8 @@ export function excludedEditorRanges(state: EditorState, from: number, to: numbe
     from,
     to,
     enter(node) {
-      const tokens = node.type.prop<string>(tokenClassNodeProp)?.split(" ") || [];
-      const lines = node.type.prop<string>(lineClassNodeProp)?.split(" ") || [];
+      const tokens = nodeClasses(node.type, tokenClassNodeProp);
+      const lines = nodeClasses(node.type, lineClassNodeProp);
       if (lines.some(token => excludedLine.test(token))) {
         const first = state.doc.lineAt(node.from);
         const last = state.doc.lineAt(Math.max(node.from, node.to - 1));
